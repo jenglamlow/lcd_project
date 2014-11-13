@@ -76,16 +76,16 @@ void __error__(char *pcFilename, unsigned long ulLine)
 
 int main()
 {
-    ROM_SysCtlClockSet(SYSCTL_SYSDIV_4|SYSCTL_USE_PLL|SYSCTL_XTAL_16MHZ|SYSCTL_OSC_MAIN);
-    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    ROM_GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, LED_RED|LED_BLUE|LED_GREEN);
+    SysCtlClockSet(SYSCTL_SYSDIV_4|SYSCTL_USE_PLL|SYSCTL_XTAL_16MHZ|SYSCTL_OSC_MAIN);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+    GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, LED_RED|LED_BLUE|LED_GREEN);
 
     while (1)
     {
-        ROM_GPIOPinWrite(GPIO_PORTF_BASE, LED_RED|LED_GREEN|LED_BLUE, LED_RED);
-        ROM_SysCtlDelay(5000000);
-        ROM_GPIOPinWrite(GPIO_PORTF_BASE, LED_RED|LED_GREEN|LED_BLUE, 0); 
-        ROM_SysCtlDelay(5000000);
+        GPIOPinWrite(GPIO_PORTF_BASE, LED_RED|LED_GREEN|LED_BLUE, LED_RED);
+        SysCtlDelay(5000000);
+        GPIOPinWrite(GPIO_PORTF_BASE, LED_RED|LED_GREEN|LED_BLUE, 0); 
+        SysCtlDelay(5000000);
     }
 }
 
