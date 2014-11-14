@@ -13,3 +13,5 @@
 
 # vim tags file
 tags
+*.swo
+*.swp
