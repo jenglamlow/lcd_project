@@ -1,32 +1,32 @@
 /*
  * =====================================================================================
  *
- *       Filename:  spi.h
+ *       Filename:  template.h
  *
- *    Description:  SPI services header file
+ *    Description:  
  *
  *        Version:  1.0
- *        Created:  11/15/2014 02:07:42 PM
+ *        Created:  11/15/2014 01:54:26 PM
  *       Revision:  none
  *       Compiler:  gcc
  *
- *         Author:  Low Jeng Lam (jeng), jenglamlow@gmail.com
- *   Organization:  Malaysia
+ *         Author:  Low Jeng Lam
+ *   Organization:  
  *
  * =====================================================================================
  */
 
-#ifndef SPI_H
-#define SPI_H
+#ifndef TEMPLATE_H
+#define TEMPLATE_H
 
 /*-----------------------------------------------------------------------------
  *  Includes
  *-----------------------------------------------------------------------------*/
-
 /* Third party libraries include */
 
 /* Local includes */
 #include "lib.h"
+#include "spi.h"
 
 /*-----------------------------------------------------------------------------
  *  Constants
@@ -43,20 +43,15 @@
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
-
-/* SPI services function pointer */
 typedef struct
 {
-    void (*open)(void);
+    void (*start)(template_cb_t     template_cb);
 
-    void (*close)(void);
-
-} spi_services_t;
+} lcd_services_t;
 
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
-
-void spi_init(spi_services_t *spi_services);
+void lcd_init(lcd_services_t *lcd_services);
 
 #endif

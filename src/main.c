@@ -64,7 +64,7 @@ void __error__(char *pcFilename, unsigned long ulLine)
  */
 static void peripheral_init(void)
 {
-    spi.close();
+    spi.open();
 }
 /**
  * @brief  Component services initialisation
