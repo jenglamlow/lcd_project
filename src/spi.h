@@ -24,15 +24,13 @@
  *-----------------------------------------------------------------------------*/
 
 /* Third party libraries include */
-#include "inc/hw_types.h"
-#include "driverlib/sysctl.h"
 
 /* Local includes */
+#include "lib.h"
 
 /*-----------------------------------------------------------------------------
  *  Constants
  *-----------------------------------------------------------------------------*/
-#define CONSTANT_1 (1U)
 
 /*-----------------------------------------------------------------------------
  *  Types
@@ -52,6 +50,7 @@ typedef void (*spi_cb_t)(void);
 typedef struct
 {
     void (*open)(void);
+    void (*close)(void);
 
 } spi_services_t;
 

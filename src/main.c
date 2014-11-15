@@ -22,24 +22,14 @@
  *-----------------------------------------------------------------------------*/
 
 /* Third party libraries include */
-#include <stdint.h>
-#include "inc/hw_gpio.h"
-#include "inc/hw_memmap.h"
-#include "inc/hw_sysctl.h"
-#include "inc/hw_types.h"
-#include "driverlib/gpio.h"
-#include "driverlib/rom.h"
-#include "driverlib/sysctl.h"
+#include "lib.h"
 
 /* Local includes */
+#include "spi.h"
 
 /*-----------------------------------------------------------------------------
  *  Configurations
  *-----------------------------------------------------------------------------*/
-
-#define LED_RED GPIO_PIN_1
-#define LED_BLUE GPIO_PIN_2
-#define LED_GREEN GPIO_PIN_3
 
 /*-----------------------------------------------------------------------------
  *  Private Types
@@ -48,6 +38,7 @@
 /*-----------------------------------------------------------------------------
  *  Private Data
  *-----------------------------------------------------------------------------*/
+static spi_services_t spi;
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -68,6 +59,35 @@ void __error__(char *pcFilename, unsigned long ulLine)
 }
 #endif
 
+/**
+ * @brief  Peripheral initialisation
+ */
+static void peripheral_init(void)
+{
+    spi.close();
+}
+/**
+ * @brief  Component services initialisation
+ */
+static void service_init(void)
+{
+    /* Initialize SPI Component */
+    spi_init(&spi);
+}
+
+/**
+ * @brief  Initalize CPU clock speed
+ */
+static void cpu_clock_init(void)
+{
+    /* Set Clock to 80Mhz */
+    SysCtlClockSet(SYSCTL_SYSDIV_2_5 |
+                   SYSCTL_USE_PLL |
+                   SYSCTL_XTAL_16MHZ |
+                   SYSCTL_OSC_MAIN);
+
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+}
 
 /*-----------------------------------------------------------------------------
  *  Event call-backs
@@ -86,16 +106,12 @@ void __error__(char *pcFilename, unsigned long ulLine)
  *-----------------------------------------------------------------------------*/
 int main()
 {
-    SysCtlClockSet(SYSCTL_SYSDIV_2_5|SYSCTL_USE_PLL|SYSCTL_XTAL_16MHZ|SYSCTL_OSC_MAIN);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, LED_RED|LED_BLUE|LED_GREEN);
+    service_init();
+    cpu_clock_init();
+    peripheral_init();
 
-    while (1)
+    while(1)
     {
-        GPIOPinWrite(GPIO_PORTF_BASE, LED_RED|LED_GREEN|LED_BLUE, LED_RED);
-        SysCtlDelay(5000000);
-        GPIOPinWrite(GPIO_PORTF_BASE, LED_RED|LED_GREEN|LED_BLUE, 0); 
-        SysCtlDelay(5000000);
     }
 }
 
