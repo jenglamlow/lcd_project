@@ -110,6 +110,7 @@ LINKER_FILE = LM4F.ld
 C_SRC += $(STARTUP_FILE).c
 C_SRC += main.c
 C_SRC += spi.c
+C_SRC += lcd.c
 
 # Object File
 OBJS = $(addsuffix .o,$(addprefix $(OBJ_PATH)/,$(basename $(C_SRC))))

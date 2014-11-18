@@ -45,13 +45,16 @@
  *-----------------------------------------------------------------------------*/
 typedef struct
 {
-    void (*start)(template_cb_t     template_cb);
+    void (*open)(void);
+    void (*write_command)(uint8_t     command);
+    void (*write_data)(uint8_t     command);
 
 } lcd_services_t;
 
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
-void lcd_init(lcd_services_t *lcd_services);
+void lcd_init(lcd_services_t *lcd_services,
+              spi_services_t *spi_services);
 
 #endif

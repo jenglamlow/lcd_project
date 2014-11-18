@@ -26,6 +26,7 @@
 
 /* Local includes */
 #include "spi.h"
+#include "lcd.h"
 
 /*-----------------------------------------------------------------------------
  *  Configurations
@@ -39,6 +40,7 @@
  *  Private Data
  *-----------------------------------------------------------------------------*/
 static spi_services_t spi;
+static lcd_services_t lcd;
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -64,7 +66,9 @@ void __error__(char *pcFilename, unsigned long ulLine)
  */
 static void peripheral_init(void)
 {
-    spi.open();
+    spi.open(SPI_LCD);
+
+    lcd.open();
 }
 /**
  * @brief  Component services initialisation
@@ -73,6 +77,7 @@ static void service_init(void)
 {
     /* Initialize SPI Component */
     spi_init(&spi);
+    lcd_init(&lcd, &spi);
 }
 
 /**

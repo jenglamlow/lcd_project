@@ -36,6 +36,14 @@
  *  Types
  *-----------------------------------------------------------------------------*/
 
+/* SPI instance type */
+typedef enum
+{
+    SPI_LCD = 0x00,
+    SPI_SD_CARD,
+    SPI_COUNT
+} spi_instance_t;
+
 /*-----------------------------------------------------------------------------
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
@@ -47,9 +55,11 @@
 /* SPI services function pointer */
 typedef struct
 {
-    void (*open)(void);
+    void (*open)(spi_instance_t spi_instance);
 
-    void (*close)(void);
+    void (*close)(spi_instance_t spi_instance);
+
+    void (*write)(spi_instance_t spi_instance, uint8_t data);
 
 } spi_services_t;
 
