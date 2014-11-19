@@ -152,7 +152,7 @@ clean:
 
 # Rule to load the project to the board
 # I added a sudo because it's needed without a rule.
-load:
+load: clean all
 	${FLASHER} ${BIN} ${FLASHER_FLAGS}
 
 # GDB debugging

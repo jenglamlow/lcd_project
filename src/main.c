@@ -105,18 +105,26 @@ static void cpu_clock_init(void)
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
+void delay_ms(int del)     //generates delay in milliseconds
+{
+del = (SysCtlClockGet()/3.0)*del/1000.0;
+SysCtlDelay(del);
+}
 
 /*-----------------------------------------------------------------------------
  *  Main Routine
  *-----------------------------------------------------------------------------*/
 int main()
 {
+    delay_ms(10);
     service_init();
     cpu_clock_init();
     peripheral_init();
 
+    uint8_t a = 0;
     while(1)
     {
+    delay_ms(10);
     }
 }
 
