@@ -93,12 +93,12 @@ static void spi_lcd_hw_init(void)
     /* Configure PORTA pin muxing as SSI0 peripheral function */  
     GPIOPinConfigure(GPIO_PA2_SSI0CLK);
     GPIOPinConfigure(GPIO_PA3_SSI0FSS);
-    GPIOPinConfigure(GPIO_PA4_SSI0RX);
+    /* GPIOPinConfigure(GPIO_PA4_SSI0RX); */
     GPIOPinConfigure(GPIO_PA5_SSI0TX);
 
     /* Configure the GPIO settings for SSI pins */
    GPIOPinTypeSSI(GPIO_PORTA_BASE, 
-                   GPIO_PIN_5 |GPIO_PIN_4 | GPIO_PIN_3 |GPIO_PIN_2);
+                   GPIO_PIN_5 | GPIO_PIN_3 |GPIO_PIN_2);
 
     /* 
      * SPI set using SSI0]
