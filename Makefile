@@ -111,6 +111,7 @@ C_SRC += $(STARTUP_FILE).c
 C_SRC += main.c
 C_SRC += spi.c
 C_SRC += lcd.c
+C_SRC += utils.c
 
 # Object File
 OBJS = $(addsuffix .o,$(addprefix $(OBJ_PATH)/,$(basename $(C_SRC))))
