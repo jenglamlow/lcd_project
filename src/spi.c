@@ -48,7 +48,7 @@ typedef struct
 static spi_state_t spi_state[SPI_COUNT];
 
 /* SPI instance index mapping */
-static uint8_t spi_index_map[SPI_COUNT] = 
+static const uint8_t spi_index_map[SPI_COUNT] = 
 {
    0,    /* SPI_LCD - SSI0 */
    1     /* SPI_SD_CARD - SSI1 */
@@ -60,10 +60,16 @@ static const uint32_t ssi_base_map[] =
     SSI0_BASE, SSI1_BASE, SSI2_BASE, SSI3_BASE
 };
 
+/* SSI Peripheral GPIO Map */
+static const uint32_t ssi_peripheral_gpio_map[] = 
+{
+    SYSCTL_PERIPH_GPIOA, SYSCTL_PERIPH_GPIOF, SYSCTL_PERIPH_GPIOB, SYSCTL_PERIPH_GPIOD
+};
+
 /* SSI Peripheral Map */
 static const uint32_t ssi_peripheral_map[] = 
 {
-        SYSCTL_PERIPH_SSI0, SYSCTL_PERIPH_SSI1, SYSCTL_PERIPH_SSI2, SYSCTL_PERIPH_SSI3
+    SYSCTL_PERIPH_SSI0, SYSCTL_PERIPH_SSI1, SYSCTL_PERIPH_SSI2, SYSCTL_PERIPH_SSI3
 };
 
 /* SSI GPIO Configuration Map */
@@ -76,18 +82,18 @@ static const uint32_t ssi_gpio_config_map[][4] =
 };
 
 /* SSI GPIO Port Map */
-static const unsigned long ssi_gpio_port_map[] = 
+static const uint32_t ssi_gpio_port_map[] = 
 {
     GPIO_PORTA_BASE, GPIO_PORTF_BASE, GPIO_PORTB_BASE, GPIO_PORTD_BASE
 };
 
 /* SSI GPIO Pin Map */
-static const unsigned long ssi_gpio_pin_map[] = 
+static const uint32_t ssi_gpio_pin_map[] = 
 {
-	GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5,
-	GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3,
-	GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7,
-	GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3
+    GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5,
+    GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3,
+    GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7,
+    GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3
 };
 
 /*-----------------------------------------------------------------------------
@@ -144,12 +150,15 @@ static void spi_open(spi_instance_t spi_instance)
 
     /* Disable SSI module */ 
     ROM_SSIDisable(ssi_base_map[ssi_module]);
+    
+    /* Enable GPIO port */ 
+    ROM_SysCtlPeripheralEnable(ssi_peripheral_gpio_map[ssi_module]);
 
     /* Configure PORT pin muxing as SSI peripheral function */  
     ROM_GPIOPinConfigure(ssi_gpio_config_map[ssi_module][0]);
     ROM_GPIOPinConfigure(ssi_gpio_config_map[ssi_module][1]);
     ROM_GPIOPinConfigure(ssi_gpio_config_map[ssi_module][2]);
-    ROM_GPIOPinConfigure(ssi_gpio_config_map[ssi_module][3]);
+    GPIOPinConfigure(ssi_gpio_config_map[ssi_module][3]);
 
     /* Configure the GPIO settings for SSI pins */
     ROM_GPIOPinTypeSSI(ssi_gpio_port_map[ssi_module], 
@@ -200,7 +209,7 @@ static void spi_write(spi_instance_t spi_instance,
     ROM_SSIDataPut(ssi_base_map[ssi_module], (uint8_t)data);
 
     /* Get Data from SSI */
-    uint32_t rx_data;
+    uint64_t rx_data;
     ROM_SSIDataGet(ssi_base_map[ssi_module], &rx_data);
 }
 

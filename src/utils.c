@@ -58,7 +58,7 @@ static void helper(void)
  *
  * @param us    Microseconds
  */
-void delay_us(unsigned int us)
+void delay_us(uint32_t us)
 {
     volatile uint32_t elapsed_time;
     uint32_t start_time = HWREG(NVIC_ST_CURRENT);
@@ -76,8 +76,10 @@ void delay_us(unsigned int us)
  */
 void delay_ms(uint32_t ms)
 {
-    uint32_t i;
-    for(i=0; i<ms; i++){
-            delay_us(1000);
-    }
+    /* uint32_t i; */
+    /* for(i=0; i<ms; i++){ */
+    /*         delay_us(1000); */
+    /* } */
+    ms = (ROM_SysCtlClockGet()/3)*ms/1000;
+    ROM_SysCtlDelay(ms);
 }

@@ -39,7 +39,7 @@
 /* SPI instance type */
 typedef enum
 {
-    SPI_LCD = 0x00,
+    SPI_LCD = 0,
     SPI_SD_CARD,
     SPI_COUNT
 } spi_instance_t;

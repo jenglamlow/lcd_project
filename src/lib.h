@@ -35,4 +35,7 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/gpio.h"
 
+/* Helper library */
+#include "utils.h"
+
 #endif
