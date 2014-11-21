@@ -178,7 +178,7 @@ static void spi_open(spi_instance_t spi_instance)
                            SysCtlClockGet(), 
                            SSI_FRF_MOTO_MODE_0,
                            SSI_MODE_MASTER, 
-                           10000000, 
+                           40000000, 
                            8);
 
     /* Enable SSI module */

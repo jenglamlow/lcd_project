@@ -47,9 +47,9 @@ static spi_services_t spi;
 static void lcd_hw_init(void)
 {
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
-    GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE, GPIO_PIN_3);
+    GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE, GPIO_PIN_2);
     GPIOPinWrite(GPIO_PORTE_BASE,
-                 GPIO_PIN_3,
+                 GPIO_PIN_2,
                  0x00);
 
     /* GPIOPinTypeGPIOOutput(GPIO_PORTE_BASE, GPIO_PIN_2); */
@@ -61,15 +61,15 @@ static void lcd_hw_init(void)
 static void lcd_set_dc_pin(void)
 {
     GPIOPinWrite(GPIO_PORTE_BASE,
-                 GPIO_PIN_3,
-                 GPIO_PIN_3);
+                 GPIO_PIN_2,
+                 GPIO_PIN_2);
 }
 
 
 static void lcd_clear_dc_pin(void)
 {
     GPIOPinWrite(GPIO_PORTE_BASE,
-                 GPIO_PIN_3,
+                 GPIO_PIN_2,
                  0x00);
 }
 
@@ -145,6 +145,10 @@ static void lcd_open(void)
 
     spi.write(SPI_LCD,0);        /* strawman transfer */
     delay_ms(10);
+
+    /* delay_ms(500); */
+    /* lcd_write_command(0x01); */
+    /* delay_ms(200); */
 
     lcd_write_command(0xCB);  
     lcd_write_data(0x39); 
