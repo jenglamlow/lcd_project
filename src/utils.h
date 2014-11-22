@@ -31,6 +31,13 @@
  *  Constants
  *-----------------------------------------------------------------------------*/
 
+/* Function Macro */
+/* Set bits of the register */
+#define SET_BITS(reg, mask)         ROM_GPIOPinWrite(reg, mask, mask)
+
+/* Clear bits of the register */
+#define CLEAR_BITS(reg, mask)       ROM_GPIOPinWrite(reg, mask, 0x00)
+
 /*-----------------------------------------------------------------------------
  *  Types
  *-----------------------------------------------------------------------------*/

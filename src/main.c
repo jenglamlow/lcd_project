@@ -66,8 +66,6 @@ void __error__(char *pcFilename, unsigned long ulLine)
  */
 static void peripheral_init(void)
 {
-    spi.open(SPI_LCD);
-
     lcd.open();
 }
 /**
