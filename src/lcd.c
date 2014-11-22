@@ -28,6 +28,14 @@
 /*-----------------------------------------------------------------------------
  *  Configuration
  *-----------------------------------------------------------------------------*/
+/* LCD (ILI9341) size */
+#define LCD_HEIGHT      240
+#define LCD_WIDTH       320
+
+#define MIN_X           0
+#define MIN_Y           0
+#define MAX_X           239
+#define MAX_Y           319
 
 /* pin mapping for D/C lcd */ 
 #define DC_PIN_BASE         GPIO_PORTE_BASE
@@ -40,14 +48,77 @@
 #define CLEAR_DC_PIN        CLEAR_BITS(DC_PIN_BASE, DC_PIN)
 
 /* pin mapping for RST lcd */ 
-#define RST_PIN_BASE         GPIO_PORTE_BASE
-#define RST_PIN              GPIO_PIN_3
+#define RST_PIN_BASE        GPIO_PORTE_BASE
+#define RST_PIN             GPIO_PIN_3
 
 /* Set RST pin to high */
-#define SET_RST_PIN          SET_BITS(RST_PIN_BASE, RST_PIN)
+#define SET_RST_PIN         SET_BITS(RST_PIN_BASE, RST_PIN)
 
 /* Set RST pin to low */
-#define CLEAR_RST_PIN        CLEAR_BITS(RST_PIN_BASE, RST_PIN)
+#define CLEAR_RST_PIN       CLEAR_BITS(RST_PIN_BASE, RST_PIN)
+
+
+/*-----------------------------------------------------------------------------
+ *  ILI9341 command list
+ *-----------------------------------------------------------------------------*/
+
+/* ILI9340 command */
+#define SWRESET		0x01
+#define	BSTRON		0x03
+#define RDDIDIF		0x04
+#define RDDST		0x09
+#define SLEEPIN         0x10
+#define	SLEEPOUT	0x11
+#define	NORON		0x13
+#define	INVOFF		0x20
+#define INVON      	0x21
+#define	SETCON		0x25
+#define DISPOFF         0x28
+#define DISPON          0x29
+#define CASETP          0x2A
+#define PASETP          0x2B
+#define RAMWRP          0x2C
+#define RGBSET	        0x2D
+#define	MADCTL		0x36
+#define SEP		0x37
+#define	COLMOD		0x3A
+#define DISCTR          0xB9
+#define DOR		0xBA
+#define	EC		0xC0
+#define RDID1		0xDA
+#define RDID2		0xDB
+#define RDID3		0xDC
+
+#define SETOSC		0xB0
+#define SETPWCTR4	0xB4
+#define SETPWCTR5	0xB5
+#define SETEXTCMD	0xC1
+#define SETGAMMAP	0xC2
+#define SETGAMMAN	0xC3
+
+// ILI9340 specific
+#define ILIGS		0x26
+#define ILIMAC		0x36
+#define ILIFCNM		0xB1
+#define ILIFCIM		0xB2
+#define ILIFCPM		0xB3
+#define ILIDFC		0xB6
+#define ILIPC1		0xC0
+#define ILIPC2		0xC1
+#define ILIVC1		0xC5
+#define ILIVC2		0xC7
+#define PWRCTRLA	0xCB
+#define PWRCTRLB	0xCF
+#define RDID4		0xD3
+#define GER4SPI		0xD9
+#define ILIPGC		0xE0
+#define ILINGC		0xE1
+#define DTCTRLA1	0xE8
+#define DTCTRLA2	0xE9
+#define DTCTRLB		0xEA
+#define POSC		0xED
+#define ILIGFD		0xF2
+#define PRC		0xF7
 
 /*-----------------------------------------------------------------------------
  *  Private Types
@@ -57,13 +128,18 @@
  *  Private Data
  *-----------------------------------------------------------------------------*/
 
-static spi_services_t spi;
+static spi_services_t   spi;
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
  *-----------------------------------------------------------------------------*/
 
-static void lcd_hw_init(void)
+/**
+ * @brief  Initialize LCD hardware setting 
+ *         SPI initialization
+ *         D/C & RST GPIO hardware initialization
+ */
+static void hw_init(void)
 {
     /* Enable PortE for RST & D/C PIN */
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
@@ -82,77 +158,109 @@ static void lcd_hw_init(void)
     spi.open(SPI_LCD);
 }
 
-static void lcd_write_command(uint8_t data)
+/**
+ * @brief  LCD write command
+ *
+ * @param data: Command (8-bit) 
+ */
+static void send_command(uint8_t cmd)
 {
     CLEAR_DC_PIN;
 
-    spi.write(SPI_LCD,data);
+    spi.write(SPI_LCD, cmd);
 }
 
-static void lcd_write_data(uint8_t data)
+/**
+ * @brief  LCD write data
+ *
+ * @param data: data (8-bit)
+ */
+static void send_data(uint8_t data)
 {
     SET_DC_PIN;
 
-    spi.write(SPI_LCD,data);
+    spi.write(SPI_LCD, data);
 }
 
-void sendData(uint16_t data)
+/**
+ * @brief  LCD write in word
+ *
+ * @param word: data (16-bit)
+ */
+static void send_word(uint16_t word)
 {
-    uint8_t data1 = data>>8;
-    uint8_t data2 = data&0xff;
+    uint8_t high_byte = word>>8;
+    uint8_t low_byte = word&0xff;
 
     SET_DC_PIN;
 
-    spi.write(SPI_LCD,data1);
-    spi.write(SPI_LCD,data2);
+    spi.write(SPI_LCD, high_byte);
+    spi.write(SPI_LCD, low_byte);
 }
 
-void setCol(uint16_t StartCol,uint16_t EndCol)
+/**
+ * @brief  LCD set column
+ *
+ * @param start_column: Starting position of the column
+ * @param end_column: End position of the column
+ */
+static void set_column(uint16_t start_column,uint16_t end_column)
 {
-    lcd_write_command(0x2A);                                                      /* Column Command address       */
-    sendData(StartCol);
-    sendData(EndCol);
+    send_command(CASETP);              /* Column Address Set */
+    send_word(start_column);
+    send_word(end_column);
 }
 
-void setPage(uint16_t StartPage,uint16_t EndPage)
+/**
+ * @brief  LCD set page
+ *
+ * @param StartPage: Starting position of the page
+ * @param EndPage: End position of the page
+ */
+static void set_page(uint16_t StartPage,uint16_t EndPage)
 {
-    lcd_write_command(0x2B);                                                      /* Column Command address       */
-    sendData(StartPage);
-    sendData(EndPage);
+    send_command(PASETP);              /* Page Address Set */
+    send_word(StartPage);
+    send_word(EndPage);
 }
 
-void fillScreen(void)
-{
-    setCol(0, 239);
-    setPage(0, 319);
-    lcd_write_command(0x2c);                                                  /* start to write to display ra */
 
-    SET_DC_PIN;
-
-    for(uint16_t i=0; i<38400; i++)
-    {
-        spi.write(SPI_LCD,0x7f);
-        spi.write(SPI_LCD,0x7f);
-        spi.write(SPI_LCD,0x7f);
-        spi.write(SPI_LCD,0x7f);
-    }
-}
 /*-----------------------------------------------------------------------------
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
 
-/*-----------------------------------------------------------------------------
- *  IRQ Handler
- *-----------------------------------------------------------------------------*/
 
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
 
+/**
+* @brief  Clear LCD screen to all black
+*/
+static void lcd_clear_screen(void)
+{
+    set_column(0, (LCD_HEIGHT - 1));
+    set_page(0, (LCD_WIDTH - 1));
+
+    send_command(RAMWRP);              /* Memory Write */
+
+    SET_DC_PIN;
+    
+    uint32_t total_pixel = (LCD_WIDTH * LCD_HEIGHT) / 2;
+
+    for (uint16_t i=0; i<total_pixel; i++)
+    {
+        spi.write(SPI_LCD,0);
+        spi.write(SPI_LCD,0);
+        spi.write(SPI_LCD,0);
+        spi.write(SPI_LCD,0);
+    }
+}
+
 static void lcd_open(void)
 {
     /* Initialize Hardware I/O for LCD */
-    lcd_hw_init();
+    hw_init();
 
     /* strawman transfer */
     spi.write(SPI_LCD,0);        
@@ -164,125 +272,175 @@ static void lcd_open(void)
     delay_ms(500);
 
     /* Software Reset */
-    lcd_write_command(SWRESET);
+    send_command(SWRESET);
     delay_ms(200);
 
-    lcd_write_command(PWRCTRLA);        /* Power Control */
-    lcd_write_data(0x39); 
-    lcd_write_data(0x2C); 
-    lcd_write_data(0x00); 
-    lcd_write_data(0x34); 
-    lcd_write_data(0x02); 
+    send_command(PWRCTRLA);        /* Power Control */
+    send_data(0x39); 
+    send_data(0x2C); 
+    send_data(0x00); 
+    send_data(0x34); 
+    send_data(0x02); 
 
-    lcd_write_command(PWRCTRLB);  
-    lcd_write_data(0x00); 
-    lcd_write_data(0XC1); 
-    lcd_write_data(0X30); 
+    send_command(PWRCTRLB);  
+    send_data(0x00); 
+    send_data(0XC1); 
+    send_data(0X30); 
 
-    lcd_write_command(DTCTRLA1);        /* Driver Timing Control */
-    lcd_write_data(0x85); 
-    lcd_write_data(0x00); 
-    lcd_write_data(0x78); 
+    send_command(DTCTRLA1);        /* Driver Timing Control */
+    send_data(0x85); 
+    send_data(0x00); 
+    send_data(0x78); 
 
-    lcd_write_command(DTCTRLB);  
-    lcd_write_data(0x00); 
-    lcd_write_data(0x00); 
+    send_command(DTCTRLB);  
+    send_data(0x00); 
+    send_data(0x00); 
 
-    lcd_write_command(POSC);            /* Power On Sequence Control */
-    lcd_write_data(0x64); 
-    lcd_write_data(0x03); 
-    lcd_write_data(0X12); 
-    lcd_write_data(0X81); 
+    send_command(POSC);            /* Power On Sequence Control */
+    send_data(0x64); 
+    send_data(0x03); 
+    send_data(0X12); 
+    send_data(0X81); 
 
-    lcd_write_command(PRC);             /* Pump Ratio Control */
-    lcd_write_data(0x20); 
+    send_command(PRC);             /* Pump Ratio Control */
+    send_data(0x20); 
 
-    lcd_write_command(ILIPC1);          /* power control */
-    lcd_write_data(0x23);   	
+    send_command(ILIPC1);          /* power control */
+    send_data(0x23);   	
 
-    lcd_write_command(ILIPC2);    	
-    lcd_write_data(0x10);   	
+    send_command(ILIPC2);    	
+    send_data(0x10);   	
 
-    lcd_write_command(ILIVC1);          /* VCOM Control */
-    lcd_write_data(0x3e);   	
-    lcd_write_data(0x28); 
+    send_command(ILIVC1);          /* VCOM Control */
+    send_data(0x3e);   	
+    send_data(0x28); 
 
-    lcd_write_command(ILIVC2);    
-    lcd_write_data(0x86);  	 
+    send_command(ILIVC2);    
+    send_data(0x86);  	 
 
-    lcd_write_command(MADCTL);    	/* Memory Access Control */
-    lcd_write_data(0x48);  	        /* Refresh Order - BGR colour filter */
+    send_command(MADCTL);    	/* Memory Access Control */
+    send_data(0x48);  	        /* Refresh Order - BGR colour filter */
 
-    lcd_write_command(COLMOD);          /* Pixel Format Set */
-    lcd_write_data(0x55);               /* 16 bits/pixel */
+    send_command(COLMOD);          /* Pixel Format Set */
+    send_data(0x55);               /* 16 bits/pixel */
 
-    lcd_write_command(ILIFCNM);         /* Frame Rate Control */
-    lcd_write_data(0x00);               /* Fosc */
-    lcd_write_data(0x18);               /* 24 clocks for line period */
+    send_command(ILIFCNM);         /* Frame Rate Control */
+    send_data(0x00);               /* Fosc */
+    send_data(0x18);               /* 24 clocks for line period */
 
-    lcd_write_command(ILIDFC);    	/* Display Function Control */
-    lcd_write_data(0x08);               /* Interval Scan */
-    lcd_write_data(0x82);               /* Normally Black , Scan cycle interval */
-    lcd_write_data(0x27);  
+    send_command(ILIDFC);    	/* Display Function Control */
+    send_data(0x08);               /* Interval Scan */
+    send_data(0x82);               /* Normally Black , Scan cycle interval */
+    send_data(0x27);  
 
-    lcd_write_command(ILIGFD);    	/* 3Gamma Function */
-    lcd_write_data(0x00);               /* Disable 3G */
+    send_command(ILIGFD);    	/* 3Gamma Function */
+    send_data(0x00);               /* Disable 3G */
 
-    lcd_write_command(ILIGS);           /* Gamma Set */
-    lcd_write_data(0x01);               /* Gamma curve */
+    send_command(ILIGS);           /* Gamma Set */
+    send_data(0x01);               /* Gamma curve */
 
-    lcd_write_command(ILIPGC);    	/* Positive Gamma Correction */
-    lcd_write_data(0x0F); 
-    lcd_write_data(0x31); 
-    lcd_write_data(0x2B); 
-    lcd_write_data(0x0C); 
-    lcd_write_data(0x0E); 
-    lcd_write_data(0x08); 
-    lcd_write_data(0x4E); 
-    lcd_write_data(0xF1); 
-    lcd_write_data(0x37); 
-    lcd_write_data(0x07); 
-    lcd_write_data(0x10); 
-    lcd_write_data(0x03); 
-    lcd_write_data(0x0E); 
-    lcd_write_data(0x09); 
-    lcd_write_data(0x00); 
+    send_command(ILIPGC);    	/* Positive Gamma Correction */
+    send_data(0x0F); 
+    send_data(0x31); 
+    send_data(0x2B); 
+    send_data(0x0C); 
+    send_data(0x0E); 
+    send_data(0x08); 
+    send_data(0x4E); 
+    send_data(0xF1); 
+    send_data(0x37); 
+    send_data(0x07); 
+    send_data(0x10); 
+    send_data(0x03); 
+    send_data(0x0E); 
+    send_data(0x09); 
+    send_data(0x00); 
 
-    lcd_write_command(ILINGC);    	/* Negative Gamma Correction */
-    lcd_write_data(0x00); 
-    lcd_write_data(0x0E); 
-    lcd_write_data(0x14); 
-    lcd_write_data(0x03); 
-    lcd_write_data(0x11); 
-    lcd_write_data(0x07); 
-    lcd_write_data(0x31); 
-    lcd_write_data(0xC1); 
-    lcd_write_data(0x48); 
-    lcd_write_data(0x08); 
-    lcd_write_data(0x0F); 
-    lcd_write_data(0x0C); 
-    lcd_write_data(0x31); 
-    lcd_write_data(0x36); 
-    lcd_write_data(0x0F); 
+    send_command(ILINGC);    	/* Negative Gamma Correction */
+    send_data(0x00); 
+    send_data(0x0E); 
+    send_data(0x14); 
+    send_data(0x03); 
+    send_data(0x11); 
+    send_data(0x07); 
+    send_data(0x31); 
+    send_data(0xC1); 
+    send_data(0x48); 
+    send_data(0x08); 
+    send_data(0x0F); 
+    send_data(0x0C); 
+    send_data(0x31); 
+    send_data(0x36); 
+    send_data(0x0F); 
 
-    lcd_write_command(SLEEPOUT);        /* Turn off Sleep Mode */
+    send_command(SLEEPOUT);        /* Turn off Sleep Mode */
     delay_ms(120); 
 
-    lcd_write_command(DISPON);          /* Display On */
+    send_command(DISPON);          /* Display On */
 
     /* Memory Write - reset to Start Column/Start Page position */
-    lcd_write_command(RAMWRP);          
-    fillScreen();
+    send_command(RAMWRP);          
+    
+    lcd_clear_screen();
 }
 
+static void lcd_fill_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color)
+{
+    uint32_t xy=0;
+    uint32_t i=0;
+
+    /* Using XOR operator to swap both value */
+    if(x0 > x1)
+    {
+        x0 = x0^x1;
+        x1 = x0^x1;
+        x0 = x0^x1;
+    }
+
+    if(y0 > y1)
+    {
+        y0 = y0^y1;
+        y1 = y0^y1;
+        y0 = y0^y1;
+    }
+
+    /* Constrain number to be within a range */
+    x0 = constrain(x0, MIN_X,MAX_X);
+    x1 = constrain(x1, MIN_X,MAX_X);
+    y0 = constrain(y0, MIN_Y,MAX_Y);
+    y1 = constrain(y1, MIN_Y,MAX_Y);
+
+    /* get total area (pixels) */
+    xy = (x1 - x0 + 1);
+    xy = xy * (y1 - y0 + 1);
+
+    /* Set Coordinate */
+    set_column(x0, x1);
+    set_page(y0, y1);
+    send_command(RAMWRP);               
+                        
+    SET_DC_PIN;
+
+    /* Start Filling area with color */
+    uint8_t high_color = color >> 8;
+    uint8_t low_color = color & 0xff;
+    for(i=0; i < xy; i++)
+    {
+        spi.write(SPI_LCD, high_color);
+        spi.write(SPI_LCD, low_color);
+    }
+}
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 void lcd_init(lcd_services_t *lcd_services,
               spi_services_t *spi_services)
 {
-    /* lcd_services->start = lcd_start; */
+    lcd_services->clear_screen = lcd_clear_screen;
     lcd_services->open = lcd_open;
+    lcd_services->fill_area = lcd_fill_area;
+
+    /* SPI Component Services */
     spi = *spi_services;
 }
 

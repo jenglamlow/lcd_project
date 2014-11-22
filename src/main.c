@@ -113,6 +113,7 @@ int main()
     cpu_clock_init();
     peripheral_init();
 
+    lcd.fill_area(10,10, 100, 100, BLUE);
     while(1)
     {
     }
