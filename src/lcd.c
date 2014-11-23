@@ -224,6 +224,13 @@ static void set_page(uint16_t StartPage,uint16_t EndPage)
     send_word(EndPage);
 }
 
+
+/**
+ * @brief  set starting position of x and y
+ *
+ * @param x: x coordinate
+ * @param y: y coordinate
+ */
 static void set_xy(uint16_t x, uint16_t y)
 {
     set_column(x, x);
@@ -407,7 +414,6 @@ static void lcd_set_pixel(uint16_t x, uint16_t y, uint16_t color)
     send_data(color);
 }
 
-
 /**
  * @brief Fill area (x0, y0) to (x1, y1) with colour 
  *
@@ -477,11 +483,11 @@ static void lcd_fill_area(uint16_t x0, uint16_t y0,
  * @param width:  Width of the rectangle
  * @param color:  Refer color macro
  */
-static void draw_rectangle(uint16_t x, uint16_t y, 
-                           uint16_t length, uint16_t width, 
-                           uint16_t color)
+static void lcd_draw_rectangle(uint16_t x, uint16_t y, 
+                               uint16_t length, uint16_t width, 
+                               uint16_t color)
 {
-    lcd_fill_area(x,(x + length), y, (y + length), color);
+    lcd_fill_area(x, y, (x + length), (y + length), color);
 }
 /*-----------------------------------------------------------------------------
  *  Initialisation
@@ -499,6 +505,7 @@ void lcd_init(lcd_services_t *lcd_services,
     lcd_services->clear_screen = lcd_clear_screen;
     lcd_services->open = lcd_open;
     lcd_services->fill_area = lcd_fill_area;
+    lcd_services->draw_rectangle = lcd_draw_rectangle;
 
     /* SPI Component Services */
     spi = *spi_services;
