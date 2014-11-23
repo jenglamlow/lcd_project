@@ -411,7 +411,7 @@ static void lcd_open(void)
 static void lcd_set_pixel(uint16_t x, uint16_t y, uint16_t color)
 {
     set_xy(x,y);
-    send_data(color);
+    send_word(color);
 }
 
 /**
@@ -489,6 +489,28 @@ static void lcd_draw_rectangle(uint16_t x, uint16_t y,
 {
     lcd_fill_area(x, y, (x + length), (y + length), color);
 }
+
+
+/**
+ * @brief  Added draw a coloured  horizontal line API starting at (x,y) with length
+ *
+ * @param x: starting x coordinate
+ * @param y: starting y coordinate
+ * @param length: length of the line
+ * @param color: Refer color macro
+ */
+static void lcd_draw_horizontal_line(uint16_t x, uint16_t y, 
+                                     uint16_t length,
+                                     uint16_t color)
+{
+    set_column(x, (x + length));
+    set_page(y, y);
+    send_command(RAMWRP);              /* Memory Write */
+
+    uint16_t i;
+    for(i = 0; i < length; i++)
+        send_word(color);
+}
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
@@ -506,6 +528,7 @@ void lcd_init(lcd_services_t *lcd_services,
     lcd_services->open = lcd_open;
     lcd_services->fill_area = lcd_fill_area;
     lcd_services->draw_rectangle = lcd_draw_rectangle;
+    lcd_services->draw_horizontal_line = lcd_draw_horizontal_line;
 
     /* SPI Component Services */
     spi = *spi_services;

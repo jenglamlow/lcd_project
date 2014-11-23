@@ -116,6 +116,7 @@ int main()
     lcd.fill_area(0,0, 100, 100, BLUE);
     lcd.fill_area(20,20, 80, 80, RED);
     lcd.draw_rectangle(100, 100, 50, 50, GREEN);
+    lcd.draw_horizontal_line(0, 50 , 240, YELLOW);
     while(1)
     {
     }
