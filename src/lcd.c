@@ -224,7 +224,12 @@ static void set_page(uint16_t StartPage,uint16_t EndPage)
     send_word(EndPage);
 }
 
-
+static void set_xy(uint16_t x, uint16_t y)
+{
+    set_column(x, x);
+    set_column(y, y);
+    send_command(RAMWRP);              /* Memory Write */
+}
 /*-----------------------------------------------------------------------------
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
@@ -257,6 +262,10 @@ static void lcd_clear_screen(void)
     }
 }
 
+
+/**
+ * @brief  LCD initialization (Hardware)
+ */
 static void lcd_open(void)
 {
     /* Initialize Hardware I/O for LCD */
@@ -384,7 +393,33 @@ static void lcd_open(void)
     lcd_clear_screen();
 }
 
-static void lcd_fill_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color)
+
+/**
+ * @brief  LCD set pixel to specific color
+ *
+ * @param x: X coordinate
+ * @param y: Y coordinate
+ * @param color: refer to COLOR macro
+ */
+static void lcd_set_pixel(uint16_t x, uint16_t y, uint16_t color)
+{
+    set_xy(x,y);
+    send_data(color);
+}
+
+
+/**
+ * @brief Fill area (x0, y0) to (x1, y1) with colour 
+ *
+ * @param x0: Top left x coordinate
+ * @param y0: Top left y coordinate
+ * @param x1: Bottom right x coordinate
+ * @param y1: Bottom right y coordinate
+ * @param color: Refer color macro
+ */
+static void lcd_fill_area(uint16_t x0, uint16_t y0, 
+                          uint16_t x1, uint16_t y1, 
+                          uint16_t color)
 {
     uint32_t xy=0;
     uint32_t i=0;
@@ -430,9 +465,34 @@ static void lcd_fill_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, ui
         spi.write(SPI_LCD, low_color);
     }
 }
+
+
+/**
+ * @brief  Draw rectangle with top left starting position (x,y) with length
+ *         and width filled with color
+ *
+ * @param x: Top left x coordinate
+ * @param y: Top left y coordinate
+ * @param length: Length of the rectangle
+ * @param width:  Width of the rectangle
+ * @param color:  Refer color macro
+ */
+static void draw_rectangle(uint16_t x, uint16_t y, 
+                           uint16_t length, uint16_t width, 
+                           uint16_t color)
+{
+    lcd_fill_area(x,(x + length), y, (y + length), color);
+}
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
+
+/**
+ * @brief  LCD servise Initialization
+ *
+ * @param lcd_services: LCD component service
+ * @param spi_services: SPI component service
+ */
 void lcd_init(lcd_services_t *lcd_services,
               spi_services_t *spi_services)
 {
