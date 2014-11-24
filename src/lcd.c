@@ -558,6 +558,35 @@ static void lcd_fill_rectangle(uint16_t x, uint16_t y,
     lcd_fill_area(x, y, (x + length), (y + length), color);
 }
 
+static void lcd_fill_circle(uint16_t xc, uint16_t yc, 
+                            uint16_t r,
+                            uint16_t color)
+{
+    int16_t dx = r;
+    int16_t dy = 0;
+    int16_t x_change = 1 - 2 * r;
+    int16_t y_change = 1;
+    int16_t r_err = 0;
+    
+    while (dx >= dy)
+    {
+        lcd_draw_line(xc + dy, yc + dx, xc - dy, yc + dx, color);
+        lcd_draw_line(xc - dy, yc - dx, xc + dy, yc - dx, color);
+        lcd_draw_line(xc - dx, yc + dy, xc + dx, yc + dy, color);
+        lcd_draw_line(xc - dx, yc - dy, xc + dx, yc - dy, color);
+
+        dy++;
+        r_err += y_change;
+        y_change += 2;
+        if (2 * r_err + x_change > 0) 
+        {
+            dx--;
+            r_err += x_change;
+            x_change += 2;
+        }
+    }
+}
+
 /**
  * @brief  Draw Rectangle Boundary without fill
  *
@@ -591,24 +620,24 @@ static void lcd_draw_circle(uint16_t xc, uint16_t yc,
 {
     int16_t x = -r;
     int16_t y = 0;
-    int16_t err = 2 - 2*r;
+    int16_t err = 2 - 2 * r;
     int16_t e2;
     
     do
     {
-        lcd_set_pixel(xc-x, yc+y,color);
-        lcd_set_pixel(xc+x, yc+y,color);
-        lcd_set_pixel(xc+x, yc-y,color);
-        lcd_set_pixel(xc-x, yc-y,color);
+        lcd_set_pixel(xc-x, yc+y, color);
+        lcd_set_pixel(xc+x, yc+y, color);
+        lcd_set_pixel(xc+x, yc-y, color);
+        lcd_set_pixel(xc-x, yc-y, color);
         e2 = err;
         if (e2 <= y)
         {
-            err += ++y*2 + 1;
+            err += ++y * 2 + 1;
             if (-x == y && e2 <= x)
                 e2 = 0;
         }
         if (e2 > x)
-            err += ++x*2+1;
+            err += ++x * 2 + 1;
     } while (x <= 0);
 }
 
@@ -625,6 +654,8 @@ static void lcd_test(void)
     lcd_draw_line(0, 0, 100, 100, GRAY1);
     lcd_draw_rectangle(150,150,240,240,YELLOW);
     lcd_draw_circle(200, 50, 10, RED);
+    lcd_fill_circle(150, 50, 10, WHITE);
+
 }
 /*-----------------------------------------------------------------------------
  *  Initialisation
@@ -643,6 +674,7 @@ void lcd_init(lcd_services_t *lcd_services,
     lcd_services->open = lcd_open;
     lcd_services->fill_area = lcd_fill_area;
     lcd_services->fill_rectangle = lcd_fill_rectangle;
+    lcd_services->fill_circle = lcd_fill_circle;
     lcd_services->draw_line = lcd_draw_line;
     lcd_services->draw_rectangle = lcd_draw_rectangle;
     lcd_services->draw_circle = lcd_draw_circle;
