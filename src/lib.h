@@ -25,6 +25,7 @@
 
 /* Standard Types */
 #include <stdint.h>
+#include <stdlib.h>
 
 /* Stellaris library */
 #include "inc/hw_gpio.h"

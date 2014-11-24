@@ -224,7 +224,12 @@ static void set_page(uint16_t StartPage,uint16_t EndPage)
     send_word(EndPage);
 }
 
-
+static void set_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
+{
+    set_column(x0, x1);
+    set_page(y0, y1);
+    send_command(RAMWRP);              /* Memory Write */
+}
 /**
  * @brief  set starting position of x and y
  *
@@ -234,7 +239,7 @@ static void set_page(uint16_t StartPage,uint16_t EndPage)
 static void set_xy(uint16_t x, uint16_t y)
 {
     set_column(x, x);
-    set_column(y, y);
+    set_page(y, y);
     send_command(RAMWRP);              /* Memory Write */
 }
 /*-----------------------------------------------------------------------------
@@ -251,10 +256,7 @@ static void set_xy(uint16_t x, uint16_t y)
 */
 static void lcd_clear_screen(void)
 {
-    set_column(0, (LCD_HEIGHT - 1));
-    set_page(0, (LCD_WIDTH - 1));
-
-    send_command(RAMWRP);              /* Memory Write */
+    set_area(0, 0, (LCD_HEIGHT - 1), (LCD_WIDTH - 1));
 
     SET_DC_PIN;
     
@@ -456,9 +458,7 @@ static void lcd_fill_area(uint16_t x0, uint16_t y0,
     xy = xy * (y1 - y0 + 1);
 
     /* Set Coordinate */
-    set_column(x0, x1);
-    set_page(y0, y1);
-    send_command(RAMWRP);               
+    set_area(x0, y0, x1, y1);
                         
     SET_DC_PIN;
 
@@ -483,33 +483,98 @@ static void lcd_fill_area(uint16_t x0, uint16_t y0,
  * @param width:  Width of the rectangle
  * @param color:  Refer color macro
  */
-static void lcd_draw_rectangle(uint16_t x, uint16_t y, 
+static void lcd_fill_rectangle(uint16_t x, uint16_t y, 
                                uint16_t length, uint16_t width, 
                                uint16_t color)
 {
     lcd_fill_area(x, y, (x + length), (y + length), color);
 }
 
+/**
+ * @brief  Draw Line from (x0, y0) to (x1, y1) with color
+ *
+ * @param x0: Starting point (x)
+ * @param y0: Starting point (x)
+ * @param x1: End Point (x)
+ * @param y1: End Point (y)
+ * @param color
+ */
+static void lcd_draw_line(uint16_t x0, uint16_t y0, 
+                          uint16_t x1, uint16_t y1,
+                          uint16_t color)
+{
+    int16_t x = x1-x0;
+    int16_t y = y1-y0;
+    int16_t dx = abs(x);
+    int16_t sx = x0<x1 ? 1 : -1;
+    int16_t dy = -abs(y);
+    int16_t sy = y0<y1 ? 1 : -1;
+    int16_t err = dx+dy;
+    int16_t e2;
+
+    uint8_t high_color = color >> 8;
+    uint8_t low_color = color & 0xff;
+
+    if (y0 == y1)           /* Horizontal */
+    {
+        set_area(x0, y0, x1, y1);
+        while(dx-- > 0)
+        {
+            send_data(high_color);
+            send_data(low_color);
+        }
+    }
+    else if (x0 == x1)      /* Vertical */
+    {
+        dy = abs(dy);
+        set_area(x0, y0, x1, y1);
+        while(dy-- > 0)
+        {
+            send_data(high_color);
+            send_data(low_color);
+        }
+    }
+    else                   /* Angled */
+    {
+       while(1)
+       {
+           lcd_set_pixel(x0, y0, color);
+           e2 = 2 * err;
+           if (e2 >= dy)
+           {
+               if(x0 == x1)
+                   break;
+               err += dy;
+               x0 += sx;
+           }
+           if (e2 <= dx)
+           {
+               if (y0 == y1)
+                   break;
+               err += dx;
+               y0 += sy;
+           }
+       } 
+    }
+}
 
 /**
- * @brief  Added draw a coloured  horizontal line API starting at (x,y) with length
+ * @brief  Draw Rectangle Boundary without fill
  *
- * @param x: starting x coordinate
- * @param y: starting y coordinate
- * @param length: length of the line
- * @param color: Refer color macro
+ * @param x: Top left x coordinate
+ * @param y: Top left y coordinate
+ * @param length: Length of the rectangle
+ * @param width:  Width of the rectangle
+ * @param color:  Refer color macro
  */
-static void lcd_draw_horizontal_line(uint16_t x, uint16_t y, 
-                                     uint16_t length,
-                                     uint16_t color)
+static void lcd_draw_rectangle(uint16_t x0, uint16_t y0, 
+                               uint16_t x1, uint16_t y1,
+                               uint16_t color)
 {
-    set_column(x, (x + length));
-    set_page(y, y);
-    send_command(RAMWRP);              /* Memory Write */
-
-    uint16_t i;
-    for(i = 0; i < length; i++)
-        send_word(color);
+    lcd_draw_line(x0, y0, x1, y0, color);
+    lcd_draw_line(x0, y1, x1, y1, color);
+    lcd_draw_line(x0, y0, x0, y1, color);
+    lcd_draw_line(x1, y0, x1, y1, color);
 }
 /*-----------------------------------------------------------------------------
  *  Initialisation
@@ -527,8 +592,9 @@ void lcd_init(lcd_services_t *lcd_services,
     lcd_services->clear_screen = lcd_clear_screen;
     lcd_services->open = lcd_open;
     lcd_services->fill_area = lcd_fill_area;
+    lcd_services->fill_rectangle = lcd_fill_rectangle;
+    lcd_services->draw_line = lcd_draw_line;
     lcd_services->draw_rectangle = lcd_draw_rectangle;
-    lcd_services->draw_horizontal_line = lcd_draw_horizontal_line;
 
     /* SPI Component Services */
     spi = *spi_services;

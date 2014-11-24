@@ -63,13 +63,15 @@ typedef struct
     void (*fill_area)(uint16_t x0, uint16_t y0, 
                       uint16_t x1, uint16_t y1, 
                       uint16_t color);
-    void (*draw_rectangle)(uint16_t x, uint16_t y, 
+    void (*fill_rectangle)(uint16_t x, uint16_t y, 
                            uint16_t length, uint16_t width, 
                            uint16_t color);
-    void (*draw_horizontal_line)(uint16_t x, uint16_t y, 
-                                 uint16_t length,
-                                 uint16_t color);
-
+    void (*draw_line)(uint16_t x0, uint16_t y0, 
+                      uint16_t x1, uint16_t y1,
+                      uint16_t color);
+    void (*draw_rectangle)(uint16_t x0, uint16_t y0, 
+                           uint16_t x1, uint16_t y1,
+                           uint16_t color);
 } lcd_services_t;
 
 /*-----------------------------------------------------------------------------
