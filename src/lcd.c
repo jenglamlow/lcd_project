@@ -416,79 +416,6 @@ static void lcd_set_pixel(uint16_t x, uint16_t y, uint16_t color)
     send_word(color);
 }
 
-/**
- * @brief Fill area (x0, y0) to (x1, y1) with colour 
- *
- * @param x0: Top left x coordinate
- * @param y0: Top left y coordinate
- * @param x1: Bottom right x coordinate
- * @param y1: Bottom right y coordinate
- * @param color: Refer color macro
- */
-static void lcd_fill_area(uint16_t x0, uint16_t y0, 
-                          uint16_t x1, uint16_t y1, 
-                          uint16_t color)
-{
-    uint32_t xy=0;
-    uint32_t i=0;
-
-    /* Using XOR operator to swap both value */
-    if(x0 > x1)
-    {
-        x0 = x0^x1;
-        x1 = x0^x1;
-        x0 = x0^x1;
-    }
-
-    if(y0 > y1)
-    {
-        y0 = y0^y1;
-        y1 = y0^y1;
-        y0 = y0^y1;
-    }
-
-    /* Constrain number to be within a range */
-    x0 = constrain(x0, MIN_X,MAX_X);
-    x1 = constrain(x1, MIN_X,MAX_X);
-    y0 = constrain(y0, MIN_Y,MAX_Y);
-    y1 = constrain(y1, MIN_Y,MAX_Y);
-
-    /* get total area (pixels) */
-    xy = (x1 - x0 + 1);
-    xy = xy * (y1 - y0 + 1);
-
-    /* Set Coordinate */
-    set_area(x0, y0, x1, y1);
-                        
-    SET_DC_PIN;
-
-    /* Start Filling area with color */
-    uint8_t high_color = color >> 8;
-    uint8_t low_color = color & 0xff;
-    for(i=0; i < xy; i++)
-    {
-        spi.write(SPI_LCD, high_color);
-        spi.write(SPI_LCD, low_color);
-    }
-}
-
-
-/**
- * @brief  Draw rectangle with top left starting position (x,y) with length
- *         and width filled with color
- *
- * @param x: Top left x coordinate
- * @param y: Top left y coordinate
- * @param length: Length of the rectangle
- * @param width:  Width of the rectangle
- * @param color:  Refer color macro
- */
-static void lcd_fill_rectangle(uint16_t x, uint16_t y, 
-                               uint16_t length, uint16_t width, 
-                               uint16_t color)
-{
-    lcd_fill_area(x, y, (x + length), (y + length), color);
-}
 
 /**
  * @brief  Draw Line from (x0, y0) to (x1, y1) with color
@@ -559,6 +486,79 @@ static void lcd_draw_line(uint16_t x0, uint16_t y0,
 }
 
 /**
+ * @brief Fill area (x0, y0) to (x1, y1) with colour 
+ *
+ * @param x0: Top left x coordinate
+ * @param y0: Top left y coordinate
+ * @param x1: Bottom right x coordinate
+ * @param y1: Bottom right y coordinate
+ * @param color: Refer color macro
+ */
+static void lcd_fill_area(uint16_t x0, uint16_t y0, 
+                          uint16_t x1, uint16_t y1, 
+                          uint16_t color)
+{
+    uint32_t xy=0;
+    uint32_t i=0;
+
+    /* Using XOR operator to swap both value */
+    if(x0 > x1)
+    {
+        x0 = x0^x1;
+        x1 = x0^x1;
+        x0 = x0^x1;
+    }
+
+    if(y0 > y1)
+    {
+        y0 = y0^y1;
+        y1 = y0^y1;
+        y0 = y0^y1;
+    }
+
+    /* Constrain number to be within a range */
+    x0 = constrain(x0, MIN_X,MAX_X);
+    x1 = constrain(x1, MIN_X,MAX_X);
+    y0 = constrain(y0, MIN_Y,MAX_Y);
+    y1 = constrain(y1, MIN_Y,MAX_Y);
+
+    /* get total area (pixels) */
+    xy = (x1 - x0 + 1);
+    xy = xy * (y1 - y0 + 1);
+
+    /* Set Coordinate */
+    set_area(x0, y0, x1, y1);
+                        
+    SET_DC_PIN;
+
+    /* Start Filling area with color */
+    uint8_t high_color = color >> 8;
+    uint8_t low_color = color & 0xff;
+    for(i=0; i < xy; i++)
+    {
+        spi.write(SPI_LCD, high_color);
+        spi.write(SPI_LCD, low_color);
+    }
+}
+
+/**
+ * @brief  Draw rectangle with top left starting position (x,y) with length
+ *         and width filled with color
+ *
+ * @param x: Top left x coordinate
+ * @param y: Top left y coordinate
+ * @param length: Length of the rectangle
+ * @param width:  Width of the rectangle
+ * @param color:  Refer color macro
+ */
+static void lcd_fill_rectangle(uint16_t x, uint16_t y, 
+                               uint16_t length, uint16_t width, 
+                               uint16_t color)
+{
+    lcd_fill_area(x, y, (x + length), (y + length), color);
+}
+
+/**
  * @brief  Draw Rectangle Boundary without fill
  *
  * @param x: Top left x coordinate
@@ -575,6 +575,56 @@ static void lcd_draw_rectangle(uint16_t x0, uint16_t y0,
     lcd_draw_line(x0, y1, x1, y1, color);
     lcd_draw_line(x0, y0, x0, y1, color);
     lcd_draw_line(x1, y0, x1, y1, color);
+}
+
+/**
+ * @brief  Draw circle using center point (xc, yc) with radius,r 
+ *
+ * @param xc: Center point (x-coordinate)
+ * @param yc: Center point (y-coordinate)
+ * @param r: Radius
+ * @param color
+ */
+static void lcd_draw_circle(uint16_t xc, uint16_t yc, 
+                            uint16_t r,
+                            uint16_t color)
+{
+    int16_t x = -r;
+    int16_t y = 0;
+    int16_t err = 2 - 2*r;
+    int16_t e2;
+    
+    do
+    {
+        lcd_set_pixel(xc-x, yc+y,color);
+        lcd_set_pixel(xc+x, yc+y,color);
+        lcd_set_pixel(xc+x, yc-y,color);
+        lcd_set_pixel(xc-x, yc-y,color);
+        e2 = err;
+        if (e2 <= y)
+        {
+            err += ++y*2 + 1;
+            if (-x == y && e2 <= x)
+                e2 = 0;
+        }
+        if (e2 > x)
+            err += ++x*2+1;
+    } while (x <= 0);
+}
+
+/**
+ * @brief  LCD sanity test by drawing several image 
+ */
+static void lcd_test(void)
+{
+    lcd_fill_area(0,0, 100, 100, BLUE);
+    lcd_fill_area(20,20, 80, 80, RED);
+    lcd_fill_rectangle(100, 100, 50, 50, GREEN);
+    lcd_draw_line(0, 50, 240, 50, YELLOW);
+    lcd_draw_line(50, 0, 50, 320, CYAN);
+    lcd_draw_line(0, 0, 100, 100, GRAY1);
+    lcd_draw_rectangle(150,150,240,240,YELLOW);
+    lcd_draw_circle(200, 50, 10, RED);
 }
 /*-----------------------------------------------------------------------------
  *  Initialisation
@@ -595,6 +645,8 @@ void lcd_init(lcd_services_t *lcd_services,
     lcd_services->fill_rectangle = lcd_fill_rectangle;
     lcd_services->draw_line = lcd_draw_line;
     lcd_services->draw_rectangle = lcd_draw_rectangle;
+    lcd_services->draw_circle = lcd_draw_circle;
+    lcd_services->test = lcd_test;
 
     /* SPI Component Services */
     spi = *spi_services;

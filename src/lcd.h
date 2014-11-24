@@ -72,6 +72,10 @@ typedef struct
     void (*draw_rectangle)(uint16_t x0, uint16_t y0, 
                            uint16_t x1, uint16_t y1,
                            uint16_t color);
+    void (*draw_circle)(uint16_t xc, uint16_t yc, 
+                        uint16_t r,
+                        uint16_t color);
+    void (*test)(void);
 } lcd_services_t;
 
 /*-----------------------------------------------------------------------------
