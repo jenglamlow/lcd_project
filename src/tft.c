@@ -1,9 +1,9 @@
 /*
  * =====================================================================================
  *
- *       Filename:  lcd.c
+ *       Filename:  tft.c
  *
- *    Description:  LCD 240 x 320 module implementation file
+ *    Description:  TFT 240 x 320 module implementation file
  *
  *        Version:  1.0
  *        Created:  11/15/2014 11:00:25 PM
@@ -23,21 +23,21 @@
 /* Third party libraries include */
 
 /* Local includes */
-#include "lcd.h"
+#include "tft.h"
 
 /*-----------------------------------------------------------------------------
  *  Configuration
  *-----------------------------------------------------------------------------*/
-/* LCD (ILI9341) size */
-#define LCD_HEIGHT      240
-#define LCD_WIDTH       320
+/* TFT (ILI9341) size */
+#define TFT_HEIGHT      240
+#define TFT_WIDTH       320
 
 #define MIN_X           0
 #define MIN_Y           0
 #define MAX_X           239
 #define MAX_Y           319
 
-/* pin mapping for D/C lcd */ 
+/* pin mapping for D/C tft */ 
 #define DC_PIN_BASE         GPIO_PORTE_BASE
 #define DC_PIN              GPIO_PIN_2
 
@@ -47,7 +47,7 @@
 /* Set D/C pin to low */
 #define CLEAR_DC_PIN        CLEAR_BITS(DC_PIN_BASE, DC_PIN)
 
-/* pin mapping for RST lcd */ 
+/* pin mapping for RST tft */ 
 #define RST_PIN_BASE        GPIO_PORTE_BASE
 #define RST_PIN             GPIO_PIN_3
 
@@ -135,7 +135,7 @@ static spi_services_t   spi;
  *-----------------------------------------------------------------------------*/
 
 /**
- * @brief  Initialize LCD hardware setting 
+ * @brief  Initialize TFT hardware setting 
  *         SPI initialization
  *         D/C & RST GPIO hardware initialization
  */
@@ -155,11 +155,11 @@ static void hw_init(void)
     CLEAR_RST_PIN;
 
     /* SPI module initialization */
-    spi.open(SPI_LCD);
+    spi.open(SPI_TFT);
 }
 
 /**
- * @brief  LCD write command
+ * @brief  TFT write command
  *
  * @param data: Command (8-bit) 
  */
@@ -167,11 +167,11 @@ static void send_command(uint8_t cmd)
 {
     CLEAR_DC_PIN;
 
-    spi.write(SPI_LCD, cmd);
+    spi.write(SPI_TFT, cmd);
 }
 
 /**
- * @brief  LCD write data
+ * @brief  TFT write data
  *
  * @param data: data (8-bit)
  */
@@ -179,11 +179,11 @@ static void send_data(uint8_t data)
 {
     SET_DC_PIN;
 
-    spi.write(SPI_LCD, data);
+    spi.write(SPI_TFT, data);
 }
 
 /**
- * @brief  LCD write in word
+ * @brief  TFT write in word
  *
  * @param word: data (16-bit)
  */
@@ -194,12 +194,12 @@ static void send_word(uint16_t word)
 
     SET_DC_PIN;
 
-    spi.write(SPI_LCD, high_byte);
-    spi.write(SPI_LCD, low_byte);
+    spi.write(SPI_TFT, high_byte);
+    spi.write(SPI_TFT, low_byte);
 }
 
 /**
- * @brief  LCD set column
+ * @brief  TFT set column
  *
  * @param start_column: Starting position of the column
  * @param end_column: End position of the column
@@ -212,7 +212,7 @@ static void set_column(uint16_t start_column,uint16_t end_column)
 }
 
 /**
- * @brief  LCD set page
+ * @brief  TFT set page
  *
  * @param StartPage: Starting position of the page
  * @param EndPage: End position of the page
@@ -252,38 +252,38 @@ static void set_xy(uint16_t x, uint16_t y)
  *-----------------------------------------------------------------------------*/
 
 /**
-* @brief  Clear LCD screen to all black
+* @brief  Clear TFT screen to all black
 */
-static void lcd_clear_screen(void)
+static void tft_clear_screen(void)
 {
-    set_area(0, 0, (LCD_HEIGHT - 1), (LCD_WIDTH - 1));
+    set_area(0, 0, (TFT_HEIGHT - 1), (TFT_WIDTH - 1));
 
     SET_DC_PIN;
     
-    uint32_t total_pixel = (LCD_WIDTH * LCD_HEIGHT) / 2;
+    uint32_t total_pixel = (TFT_WIDTH * TFT_HEIGHT) / 2;
 
     for (uint16_t i=0; i<total_pixel; i++)
     {
-        spi.write(SPI_LCD,0);
-        spi.write(SPI_LCD,0);
-        spi.write(SPI_LCD,0);
-        spi.write(SPI_LCD,0);
+        spi.write(SPI_TFT,0);
+        spi.write(SPI_TFT,0);
+        spi.write(SPI_TFT,0);
+        spi.write(SPI_TFT,0);
     }
 }
 
 
 /**
- * @brief  LCD initialization (Hardware)
+ * @brief  TFT initialization (Hardware)
  */
-static void lcd_open(void)
+static void tft_open(void)
 {
-    /* Initialize Hardware I/O for LCD */
+    /* Initialize Hardware I/O for TFT */
     hw_init();
 
     /* strawman transfer */
-    spi.write(SPI_LCD,0);        
+    spi.write(SPI_TFT,0);        
 
-    /* Reset LCD Pin */
+    /* Reset TFT Pin */
     CLEAR_RST_PIN;
     delay_ms(10);
     SET_RST_PIN;
@@ -399,18 +399,18 @@ static void lcd_open(void)
     /* Memory Write - reset to Start Column/Start Page position */
     send_command(RAMWRP);          
     
-    lcd_clear_screen();
+    tft_clear_screen();
 }
 
 
 /**
- * @brief  LCD set pixel to specific color
+ * @brief  TFT set pixel to specific color
  *
  * @param x: X coordinate
  * @param y: Y coordinate
  * @param color: refer to COLOR macro
  */
-static void lcd_set_pixel(uint16_t x, uint16_t y, uint16_t color)
+static void tft_set_pixel(uint16_t x, uint16_t y, uint16_t color)
 {
     set_xy(x,y);
     send_word(color);
@@ -426,7 +426,7 @@ static void lcd_set_pixel(uint16_t x, uint16_t y, uint16_t color)
  * @param y1: End Point (y)
  * @param color
  */
-static void lcd_draw_line(uint16_t x0, uint16_t y0, 
+static void tft_draw_line(uint16_t x0, uint16_t y0, 
                           uint16_t x1, uint16_t y1,
                           uint16_t color)
 {
@@ -465,7 +465,7 @@ static void lcd_draw_line(uint16_t x0, uint16_t y0,
     {
        while(1)
        {
-           lcd_set_pixel(x0, y0, color);
+           tft_set_pixel(x0, y0, color);
            e2 = 2 * err;
            if (e2 >= dy)
            {
@@ -494,7 +494,7 @@ static void lcd_draw_line(uint16_t x0, uint16_t y0,
  * @param y1: Bottom right y coordinate
  * @param color: Refer color macro
  */
-static void lcd_fill_area(uint16_t x0, uint16_t y0, 
+static void tft_fill_area(uint16_t x0, uint16_t y0, 
                           uint16_t x1, uint16_t y1, 
                           uint16_t color)
 {
@@ -536,8 +536,8 @@ static void lcd_fill_area(uint16_t x0, uint16_t y0,
     uint8_t low_color = color & 0xff;
     for(i=0; i < xy; i++)
     {
-        spi.write(SPI_LCD, high_color);
-        spi.write(SPI_LCD, low_color);
+        spi.write(SPI_TFT, high_color);
+        spi.write(SPI_TFT, low_color);
     }
 }
 
@@ -551,14 +551,14 @@ static void lcd_fill_area(uint16_t x0, uint16_t y0,
  * @param width:  Width of the rectangle
  * @param color:  Refer color macro
  */
-static void lcd_fill_rectangle(uint16_t x, uint16_t y, 
+static void tft_fill_rectangle(uint16_t x, uint16_t y, 
                                uint16_t length, uint16_t width, 
                                uint16_t color)
 {
-    lcd_fill_area(x, y, (x + length), (y + length), color);
+    tft_fill_area(x, y, (x + length), (y + length), color);
 }
 
-static void lcd_fill_circle(uint16_t xc, uint16_t yc, 
+static void tft_fill_circle(uint16_t xc, uint16_t yc, 
                             uint16_t r,
                             uint16_t color)
 {
@@ -570,10 +570,10 @@ static void lcd_fill_circle(uint16_t xc, uint16_t yc,
     
     while (dx >= dy)
     {
-        lcd_draw_line(xc + dy, yc + dx, xc - dy, yc + dx, color);
-        lcd_draw_line(xc - dy, yc - dx, xc + dy, yc - dx, color);
-        lcd_draw_line(xc - dx, yc + dy, xc + dx, yc + dy, color);
-        lcd_draw_line(xc - dx, yc - dy, xc + dx, yc - dy, color);
+        tft_draw_line(xc + dy, yc + dx, xc - dy, yc + dx, color);
+        tft_draw_line(xc - dy, yc - dx, xc + dy, yc - dx, color);
+        tft_draw_line(xc - dx, yc + dy, xc + dx, yc + dy, color);
+        tft_draw_line(xc - dx, yc - dy, xc + dx, yc - dy, color);
 
         dy++;
         r_err += y_change;
@@ -596,14 +596,14 @@ static void lcd_fill_circle(uint16_t xc, uint16_t yc,
  * @param width:  Width of the rectangle
  * @param color:  Refer color macro
  */
-static void lcd_draw_rectangle(uint16_t x0, uint16_t y0, 
+static void tft_draw_rectangle(uint16_t x0, uint16_t y0, 
                                uint16_t x1, uint16_t y1,
                                uint16_t color)
 {
-    lcd_draw_line(x0, y0, x1, y0, color);
-    lcd_draw_line(x0, y1, x1, y1, color);
-    lcd_draw_line(x0, y0, x0, y1, color);
-    lcd_draw_line(x1, y0, x1, y1, color);
+    tft_draw_line(x0, y0, x1, y0, color);
+    tft_draw_line(x0, y1, x1, y1, color);
+    tft_draw_line(x0, y0, x0, y1, color);
+    tft_draw_line(x1, y0, x1, y1, color);
 }
 
 /**
@@ -614,7 +614,7 @@ static void lcd_draw_rectangle(uint16_t x0, uint16_t y0,
  * @param r: Radius
  * @param color
  */
-static void lcd_draw_circle(uint16_t xc, uint16_t yc, 
+static void tft_draw_circle(uint16_t xc, uint16_t yc, 
                             uint16_t r,
                             uint16_t color)
 {
@@ -625,10 +625,10 @@ static void lcd_draw_circle(uint16_t xc, uint16_t yc,
     
     do
     {
-        lcd_set_pixel(xc-x, yc+y, color);
-        lcd_set_pixel(xc+x, yc+y, color);
-        lcd_set_pixel(xc+x, yc-y, color);
-        lcd_set_pixel(xc-x, yc-y, color);
+        tft_set_pixel(xc-x, yc+y, color);
+        tft_set_pixel(xc+x, yc+y, color);
+        tft_set_pixel(xc+x, yc-y, color);
+        tft_set_pixel(xc-x, yc-y, color);
         e2 = err;
         if (e2 <= y)
         {
@@ -642,19 +642,19 @@ static void lcd_draw_circle(uint16_t xc, uint16_t yc,
 }
 
 /**
- * @brief  LCD sanity test by drawing several image 
+ * @brief  TFT sanity test by drawing several image 
  */
-static void lcd_test(void)
+static void tft_test(void)
 {
-    lcd_fill_area(0,0, 100, 100, BLUE);
-    lcd_fill_area(20,20, 80, 80, RED);
-    lcd_fill_rectangle(100, 100, 50, 50, GREEN);
-    lcd_draw_line(0, 50, 240, 50, YELLOW);
-    lcd_draw_line(50, 0, 50, 320, CYAN);
-    lcd_draw_line(0, 0, 100, 100, GRAY1);
-    lcd_draw_rectangle(150,150,240,240,YELLOW);
-    lcd_draw_circle(200, 50, 10, RED);
-    lcd_fill_circle(150, 50, 10, WHITE);
+    tft_fill_area(0,0, 100, 100, BLUE);
+    tft_fill_area(20,20, 80, 80, RED);
+    tft_fill_rectangle(100, 100, 50, 50, GREEN);
+    tft_draw_line(0, 50, 240, 50, YELLOW);
+    tft_draw_line(50, 0, 50, 320, CYAN);
+    tft_draw_line(0, 0, 100, 100, GRAY1);
+    tft_draw_rectangle(150,150,240,240,YELLOW);
+    tft_draw_circle(200, 50, 10, RED);
+    tft_fill_circle(150, 50, 10, WHITE);
 
 }
 /*-----------------------------------------------------------------------------
@@ -662,23 +662,23 @@ static void lcd_test(void)
  *-----------------------------------------------------------------------------*/
 
 /**
- * @brief  LCD servise Initialization
+ * @brief  TFT servise Initialization
  *
- * @param lcd_services: LCD component service
+ * @param tft_services: TFT component service
  * @param spi_services: SPI component service
  */
-void lcd_init(lcd_services_t *lcd_services,
+void tft_init(tft_services_t *tft_services,
               spi_services_t *spi_services)
 {
-    lcd_services->clear_screen = lcd_clear_screen;
-    lcd_services->open = lcd_open;
-    lcd_services->fill_area = lcd_fill_area;
-    lcd_services->fill_rectangle = lcd_fill_rectangle;
-    lcd_services->fill_circle = lcd_fill_circle;
-    lcd_services->draw_line = lcd_draw_line;
-    lcd_services->draw_rectangle = lcd_draw_rectangle;
-    lcd_services->draw_circle = lcd_draw_circle;
-    lcd_services->test = lcd_test;
+    tft_services->clear_screen = tft_clear_screen;
+    tft_services->open = tft_open;
+    tft_services->fill_area = tft_fill_area;
+    tft_services->fill_rectangle = tft_fill_rectangle;
+    tft_services->fill_circle = tft_fill_circle;
+    tft_services->draw_line = tft_draw_line;
+    tft_services->draw_rectangle = tft_draw_rectangle;
+    tft_services->draw_circle = tft_draw_circle;
+    tft_services->test = tft_test;
 
     /* SPI Component Services */
     spi = *spi_services;

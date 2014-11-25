@@ -16,8 +16,8 @@
  * =====================================================================================
  */
 
-#ifndef LCD_H
-#define LCD_H
+#ifndef TFT_H
+#define TFT_H
 
 /*-----------------------------------------------------------------------------
  *  Includes
@@ -79,12 +79,12 @@ typedef struct
                         uint16_t r,
                         uint16_t color);
     void (*test)(void);
-} lcd_services_t;
+} tft_services_t;
 
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
-void lcd_init(lcd_services_t *lcd_services,
+void tft_init(tft_services_t *tft_services,
               spi_services_t *spi_services);
 
 #endif
