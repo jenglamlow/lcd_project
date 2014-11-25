@@ -67,7 +67,7 @@ typedef struct
                            uint16_t length, uint16_t width, 
                            uint16_t color);
     void (*fill_circle)(uint16_t xc, uint16_t yc, 
-                        uint16_t r,
+                        int16_t r,
                         uint16_t color);
     void (*draw_horizontal_line)(uint16_t x, uint16_t y, 
                                  uint16_t length,
@@ -81,6 +81,10 @@ typedef struct
     void (*draw_rectangle)(uint16_t x0, uint16_t y0, 
                            uint16_t length, uint16_t width,
                            uint16_t color);
+    void (*draw_triangle)(uint16_t x0, uint16_t y0, 
+                          uint16_t x1, uint16_t y1,
+                          uint16_t x2, uint16_t y2,
+                          uint16_t color);
     void (*draw_circle)(uint16_t xc, uint16_t yc, 
                         uint16_t r,
                         uint16_t color);

@@ -575,38 +575,30 @@ static void tft_fill_rectangle(uint16_t x, uint16_t y,
 }
 
 static void tft_fill_circle(uint16_t xc, uint16_t yc, 
-                            uint16_t r,
+                            int16_t r,
                             uint16_t color)
 {
-#if 0
-    int16_t dx = r;
-    int16_t dy = 0;
-    int16_t x_change = 1 - 2 * r;
-    int16_t y_change = 1;
-    int16_t r_err = 0;
-    
-    while (dx >= dy)
-    {
-        tft_draw_line(xc + dy, yc + dx, xc - dy, yc + dx, color);
-        tft_draw_line(xc - dy, yc - dx, xc + dy, yc - dx, color);
-        tft_draw_line(xc - dx, yc + dy, xc + dx, yc + dy, color);
-        tft_draw_line(xc - dx, yc - dy, xc + dx, yc - dy, color);
-
-        dy++;
-        r_err += y_change;
-        y_change += 2;
-        if (2 * r_err + x_change > 0) 
-        {
-            dx--;
-            r_err += x_change;
-            x_change += 2;
-        }
-    }
-#endif
     int16_t x = -r;
     int16_t y = 0;
     int16_t err = 2-2*r;
     int16_t e2;
+
+    do 
+    {
+        tft_draw_vertical_line(xc-x, yc-y, 2*y, color);
+        tft_draw_vertical_line(xc+x, yc-y, 2*y, color);
+
+        e2 = err;
+        if (e2 <= y) 
+        {
+            err += ++y * 2 + 1;
+            if (-x == y && e2 <= x) 
+                e2 = 0;
+        }
+        if (e2 > x) 
+            err += ++x * 2 + 1;
+    } while (x <= 0);
+
 }
 
 /**
@@ -626,6 +618,29 @@ static void tft_draw_rectangle(uint16_t x0, uint16_t y0,
     tft_draw_horizontal_line(x0, y0 + width, length, color);
     tft_draw_vertical_line(x0, y0, width, color);
     tft_draw_vertical_line(x0 + length, y0, width, color);
+}
+
+
+/**
+* @brief  Draw Triangle based on Coordinate (x0, y0), (x1, y1) & (x2, y2)
+*         without fill
+*
+* @param x0: first point (x-coordinate)
+* @param y0: first point (y-coordinate)
+* @param x1: second point (x-coordinate)
+* @param y1: second point (y-coordinate)
+* @param x2: third point (x-coordinate)
+* @param y2: third point (y-coordinate)
+* @param color
+*/
+void tft_draw_triangle(uint16_t x0, uint16_t y0, 
+                       uint16_t x1, uint16_t y1,
+                       uint16_t x2, uint16_t y2,
+                       uint16_t color)
+{
+    tft_draw_line(x0, y0, x1, y1,color);
+    tft_draw_line(x0, y0, x2, y2,color);
+    tft_draw_line(x1, y1, x2, y2,color);
 }
 
 /**
@@ -677,6 +692,7 @@ static void tft_test(void)
     tft_draw_line(50, 0, 50, 320, CYAN);
     tft_draw_line(0, 0, 100, 100, GRAY1);
     tft_draw_rectangle(150,150,240,240,YELLOW);
+    tft_draw_triangle(90,155,120,290,140,155, BLUE);
     tft_draw_circle(200, 50, 10, RED);
     tft_fill_circle(150, 50, 10, WHITE);
 
@@ -703,6 +719,7 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_vertical_line = tft_draw_vertical_line;
     tft_services->draw_line = tft_draw_line;
     tft_services->draw_rectangle = tft_draw_rectangle;
+    tft_services->draw_triangle = tft_draw_triangle;
     tft_services->draw_circle = tft_draw_circle;
     tft_services->test = tft_test;
 
