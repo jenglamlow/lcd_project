@@ -36,16 +36,9 @@
  *  Private Types
  *-----------------------------------------------------------------------------*/
 
-typedef struct
-{
-
-} spi_state_t;
-
 /*-----------------------------------------------------------------------------
  *  Private Data
  *-----------------------------------------------------------------------------*/
-
-static spi_state_t spi_state[SPI_COUNT];
 
 /* SPI instance index mapping */
 static const uint8_t spi_index_map[SPI_COUNT] = 
@@ -142,9 +135,6 @@ static void spi_open(spi_instance_t spi_instance)
     /* SSI module map based on spi instance */
     uint8_t ssi_module = spi_index_map[spi_instance];
 
-    /* SPI state instance */
-    spi_state_t *state = &spi_state[spi_instance];
-
     /* Initialise SSI peripheral */
     ROM_SysCtlPeripheralEnable(ssi_peripheral_map[ssi_module]);
 
@@ -185,7 +175,7 @@ static void spi_open(spi_instance_t spi_instance)
     ROM_SSIEnable(ssi_base_map[ssi_module]);
     
     /* Clear any residual data */
-    uint64_t dummy_read_buffer[8];
+    unsigned long dummy_read_buffer[8];
     while(ROM_SSIDataGetNonBlocking(ssi_base_map[ssi_module], 
                                     &dummy_read_buffer[0]));
 }
@@ -209,7 +199,7 @@ static void spi_write(spi_instance_t spi_instance,
     ROM_SSIDataPut(ssi_base_map[ssi_module], (uint8_t)data);
 
     /* Get Data from SSI */
-    uint64_t rx_data;
+    unsigned long rx_data;
     ROM_SSIDataGet(ssi_base_map[ssi_module], &rx_data);
 }
 

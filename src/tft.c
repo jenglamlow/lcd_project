@@ -24,6 +24,7 @@
 
 /* Local includes */
 #include "tft.h"
+#include "fonts.h"
 
 /*-----------------------------------------------------------------------------
  *  Configuration
@@ -610,14 +611,14 @@ static void tft_fill_circle(uint16_t xc, uint16_t yc,
  * @param width:  Width of the rectangle
  * @param color:  Refer color macro
  */
-static void tft_draw_rectangle(uint16_t x0, uint16_t y0, 
+static void tft_draw_rectangle(uint16_t x, uint16_t y, 
                                uint16_t length, uint16_t width,
                                uint16_t color)
 {
-    tft_draw_horizontal_line(x0, y0, length, color);
-    tft_draw_horizontal_line(x0, y0 + width, length, color);
-    tft_draw_vertical_line(x0, y0, width, color);
-    tft_draw_vertical_line(x0 + length, y0, width, color);
+    tft_draw_horizontal_line(x, y, length, color);
+    tft_draw_horizontal_line(x, y + width, length, color);
+    tft_draw_vertical_line(x, y, width, color);
+    tft_draw_vertical_line(x + length, y, width, color);
 }
 
 
@@ -678,6 +679,38 @@ static void tft_draw_circle(uint16_t xc, uint16_t yc,
     } while (x <= 0);
 }
 
+static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y, 
+                          uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
+{
+    uint8_t f;
+
+    if((ascii>=32)&&(ascii<=127))
+    {
+        ;
+    }
+    else
+    {
+        ascii = '?'-32;
+    }
+    for (int i =0; i < TFT_FONT_X; i++ ) 
+    {
+        uint8_t temp = font_5x7[ascii-0x20][i];
+        for(f=0; f < 8; f++)
+        {
+            if((temp >> f) & 0x01)
+            {
+                tft_fill_rectangle(x + i * size, y + f * size,
+                                   size, size, fgcolor);
+            }
+        else
+            {
+                tft_fill_rectangle(x + i * size, y + f * size,
+                                   size, size, bgcolor);
+            }
+        }
+    }
+}
+
 /**
  * @brief  TFT sanity test by drawing several image 
  */
@@ -695,7 +728,8 @@ static void tft_test(void)
     tft_draw_triangle(90,155,120,290,140,155, BLUE);
     tft_draw_circle(200, 50, 10, RED);
     tft_fill_circle(150, 50, 10, WHITE);
-
+    tft_draw_char('j', 0, 120, 4, WHITE, RED);
+    tft_draw_char('W', 30, 120, 4, WHITE, RED);
 }
 /*-----------------------------------------------------------------------------
  *  Initialization
@@ -722,6 +756,7 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_triangle = tft_draw_triangle;
     tft_services->draw_circle = tft_draw_circle;
     tft_services->test = tft_test;
+    tft_services->draw_char = tft_draw_char;
 
     /* SPI Component Services */
     spi = *spi_services;

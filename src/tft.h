@@ -88,6 +88,8 @@ typedef struct
     void (*draw_circle)(uint16_t xc, uint16_t yc, 
                         uint16_t r,
                         uint16_t color);
+    void (*draw_char)(uint8_t ascii, uint16_t x, uint16_t y, 
+                      uint16_t size, uint16_t fgcolor, uint16_t bgcolor);
     void (*test)(void);
 } tft_services_t;
 
