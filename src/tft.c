@@ -679,6 +679,16 @@ static void tft_draw_circle(uint16_t xc, uint16_t yc,
     } while (x <= 0);
 }
 
+/**
+ * @brief Draw ASCII charactar at (x,y) with foreground and background colour 
+ *
+ * @param ascii:    ASCII Character. eg: 'A'
+ * @param x:        Starting x position
+ * @param y:        Starting y position
+ * @param size:     Size of the font
+ * @param fgcolor:  Foreground colour
+ * @param bgcolor:  Background colour
+ */
 static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y, 
                           uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
 {
@@ -702,7 +712,7 @@ static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
                 tft_fill_rectangle(x + i * size, y + f * size,
                                    size, size, fgcolor);
             }
-        else
+            else
             {
                 tft_fill_rectangle(x + i * size, y + f * size,
                                    size, size, bgcolor);
@@ -711,6 +721,30 @@ static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
     }
 }
 
+/**
+* @brief  Draw string at (x,y) with fill foreground and background color
+*
+* @param string:    String input. Eg: "abc"
+* @param x:         x coordinate
+* @param y:         y coordinate
+* @param size:      font size
+* @param fgcolor:   foreground color
+* @param bgcolor:   background color
+*/
+void tft_draw_string(char *string, uint16_t x, uint16_t y,
+                     uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
+{
+    while(*string)
+    {
+        tft_draw_char(*string, x, y, size, fgcolor, bgcolor);
+        *string++;
+
+        if(x < MAX_X)
+        {
+            x += TFT_FONT_SPACE * size;                                     /* Move cursor right            */
+        }
+    }
+}
 /**
  * @brief  TFT sanity test by drawing several image 
  */
@@ -729,7 +763,8 @@ static void tft_test(void)
     tft_draw_circle(200, 50, 10, RED);
     tft_fill_circle(150, 50, 10, WHITE);
     tft_draw_char('j', 0, 120, 4, WHITE, RED);
-    tft_draw_char('W', 30, 120, 4, WHITE, RED);
+    tft_draw_char('W', 30, 120, 6, WHITE, RED);
+    tft_draw_string("abc", 0, 170, 3, BLACK, GREEN);
 }
 /*-----------------------------------------------------------------------------
  *  Initialization
