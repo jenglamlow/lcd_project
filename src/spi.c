@@ -50,7 +50,7 @@ static spi_state_t spi_state[SPI_COUNT];
 /* SPI instance index mapping */
 static const uint8_t spi_index_map[SPI_COUNT] = 
 {
-   0,    /* SPI_LCD - SSI0 */
+   0,    /* SPI_TFT - SSI0 */
    1     /* SPI_SD_CARD - SSI1 */
 };
 

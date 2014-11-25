@@ -26,7 +26,7 @@
 
 /* Local includes */
 #include "spi.h"
-#include "lcd.h"
+#include "tft.h"
 
 /*-----------------------------------------------------------------------------
  *  Configurations
@@ -40,7 +40,7 @@
  *  Private Data
  *-----------------------------------------------------------------------------*/
 static spi_services_t spi;
-static lcd_services_t lcd;
+static tft_services_t tft;
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -66,7 +66,7 @@ void __error__(char *pcFilename, unsigned long ulLine)
  */
 static void peripheral_init(void)
 {
-    lcd.open();
+    tft.open();
 }
 /**
  * @brief  Component services initialisation
@@ -75,7 +75,7 @@ static void service_init(void)
 {
     /* Initialize SPI Component */
     spi_init(&spi);
-    lcd_init(&lcd, &spi);
+    tft_init(&tft, &spi);
 }
 
 /**
@@ -113,7 +113,7 @@ int main()
     cpu_clock_init();
     peripheral_init();
 
-    lcd.test();
+    tft.test();
 
     while(1)
     {
