@@ -704,7 +704,7 @@ static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
     }
     for (int i =0; i < TFT_FONT_X; i++ ) 
     {
-        uint8_t temp = font_5x7[ascii-0x20][i];
+        uint8_t temp = font_map[ascii-0x20][i];
         for(f=0; f < 8; f++)
         {
             if((temp >> f) & 0x01)
