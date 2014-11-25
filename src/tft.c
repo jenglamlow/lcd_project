@@ -416,6 +416,47 @@ static void tft_set_pixel(uint16_t x, uint16_t y, uint16_t color)
     send_word(color);
 }
 
+/**
+ * @brief  Added draw a coloured horizontal line API starting at (x,y) with length
+ *
+ * @param x: starting x coordinate
+ * @param y: starting y coordinate
+ * @param length: length of the line
+ * @param color: Refer color macro
+ */
+static void tft_draw_horizontal_line(uint16_t x, uint16_t y, 
+                                     uint16_t length,
+                                     uint16_t color)
+{
+    set_column(x, (x + length));
+    set_page(y, y);
+    send_command(RAMWRP);              /* Memory Write */
+
+    uint16_t i;
+    for(i = 0; i < length; i++)
+        send_word(color);
+}
+
+/**
+ * @brief  Added draw a coloured vertical line API starting at (x,y) with length
+ *
+ * @param x: starting x coordinate
+ * @param y: starting y coordinate
+ * @param length: length of the line
+ * @param color: Refer color macro
+ */
+static void tft_draw_vertical_line(uint16_t x, uint16_t y, 
+                                   uint16_t length,
+                                   uint16_t color)
+{
+    set_column(x, x);
+    set_page(y, (y + length));
+    send_command(RAMWRP);              /* Memory Write */
+
+    uint16_t i;
+    for(i = 0; i < length; i++)
+        send_word(color);
+}
 
 /**
  * @brief  Draw Line from (x0, y0) to (x1, y1) with color
@@ -439,50 +480,25 @@ static void tft_draw_line(uint16_t x0, uint16_t y0,
     int16_t err = dx+dy;
     int16_t e2;
 
-    uint8_t high_color = color >> 8;
-    uint8_t low_color = color & 0xff;
-
-    if (y0 == y1)           /* Horizontal */
+    while(1)
     {
-        set_area(x0, y0, x1, y1);
-        while(dx-- > 0)
+        tft_set_pixel(x0, y0, color);
+        e2 = 2 * err;
+        if (e2 >= dy)
         {
-            send_data(high_color);
-            send_data(low_color);
+            if(x0 == x1)
+                break;
+            err += dy;
+            x0 += sx;
         }
-    }
-    else if (x0 == x1)      /* Vertical */
-    {
-        dy = abs(dy);
-        set_area(x0, y0, x1, y1);
-        while(dy-- > 0)
+        if (e2 <= dx)
         {
-            send_data(high_color);
-            send_data(low_color);
+            if (y0 == y1)
+                break;
+            err += dx;
+            y0 += sy;
         }
-    }
-    else                   /* Angled */
-    {
-       while(1)
-       {
-           tft_set_pixel(x0, y0, color);
-           e2 = 2 * err;
-           if (e2 >= dy)
-           {
-               if(x0 == x1)
-                   break;
-               err += dy;
-               x0 += sx;
-           }
-           if (e2 <= dx)
-           {
-               if (y0 == y1)
-                   break;
-               err += dx;
-               y0 += sy;
-           }
-       } 
-    }
+    } 
 }
 
 /**
@@ -562,6 +578,7 @@ static void tft_fill_circle(uint16_t xc, uint16_t yc,
                             uint16_t r,
                             uint16_t color)
 {
+#if 0
     int16_t dx = r;
     int16_t dy = 0;
     int16_t x_change = 1 - 2 * r;
@@ -585,6 +602,11 @@ static void tft_fill_circle(uint16_t xc, uint16_t yc,
             x_change += 2;
         }
     }
+#endif
+    int16_t x = -r;
+    int16_t y = 0;
+    int16_t err = 2-2*r;
+    int16_t e2;
 }
 
 /**
@@ -597,13 +619,13 @@ static void tft_fill_circle(uint16_t xc, uint16_t yc,
  * @param color:  Refer color macro
  */
 static void tft_draw_rectangle(uint16_t x0, uint16_t y0, 
-                               uint16_t x1, uint16_t y1,
+                               uint16_t length, uint16_t width,
                                uint16_t color)
 {
-    tft_draw_line(x0, y0, x1, y0, color);
-    tft_draw_line(x0, y1, x1, y1, color);
-    tft_draw_line(x0, y0, x0, y1, color);
-    tft_draw_line(x1, y0, x1, y1, color);
+    tft_draw_horizontal_line(x0, y0, length, color);
+    tft_draw_horizontal_line(x0, y0 + width, length, color);
+    tft_draw_vertical_line(x0, y0, width, color);
+    tft_draw_vertical_line(x0 + length, y0, width, color);
 }
 
 /**
@@ -649,6 +671,8 @@ static void tft_test(void)
     tft_fill_area(0,0, 100, 100, BLUE);
     tft_fill_area(20,20, 80, 80, RED);
     tft_fill_rectangle(100, 100, 50, 50, GREEN);
+    tft_draw_horizontal_line(0, 75, 240, WHITE);
+    tft_draw_vertical_line(75, 0, 320, WHITE);
     tft_draw_line(0, 50, 240, 50, YELLOW);
     tft_draw_line(50, 0, 50, 320, CYAN);
     tft_draw_line(0, 0, 100, 100, GRAY1);
@@ -658,11 +682,11 @@ static void tft_test(void)
 
 }
 /*-----------------------------------------------------------------------------
- *  Initialisation
+ *  Initialization
  *-----------------------------------------------------------------------------*/
 
 /**
- * @brief  TFT servise Initialization
+ * @brief  TFT service Initialization
  *
  * @param tft_services: TFT component service
  * @param spi_services: SPI component service
@@ -675,6 +699,8 @@ void tft_init(tft_services_t *tft_services,
     tft_services->fill_area = tft_fill_area;
     tft_services->fill_rectangle = tft_fill_rectangle;
     tft_services->fill_circle = tft_fill_circle;
+    tft_services->draw_horizontal_line = tft_draw_horizontal_line;
+    tft_services->draw_vertical_line = tft_draw_vertical_line;
     tft_services->draw_line = tft_draw_line;
     tft_services->draw_rectangle = tft_draw_rectangle;
     tft_services->draw_circle = tft_draw_circle;
@@ -683,4 +709,5 @@ void tft_init(tft_services_t *tft_services,
     /* SPI Component Services */
     spi = *spi_services;
 }
+
 
