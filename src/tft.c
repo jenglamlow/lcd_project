@@ -805,6 +805,42 @@ uint8_t tft_draw_number(int64_t long_num, uint16_t x, uint16_t y,
     return f;
 }
 
+
+/**
+ * @brief  Draw ASCII Character without background colour
+ *
+ * @param ascii:    ASCII Character ('G')
+ * @param x:        x coordinate 
+ * @param y:        y coordinate
+ * @param size:     Font size
+ * @param color:    Font colour
+ */
+void tft_draw_char_only(uint8_t ascii, uint16_t x, uint16_t y, 
+                        uint16_t size, uint16_t color) 
+{
+    uint8_t col = 0;
+    uint8_t row = 0;
+    uint8_t bit = 0x01;
+    uint8_t oc = ascii - 0x20;
+
+    while (row < 8) 
+    {
+        while (col < 8) 
+        {
+                if (font_map[oc][col] & bit)
+                {
+                    /* tft_set_pixel(x + col, y + row, color); */
+                    tft_fill_rectangle(x + col * size, y + row * size,
+                                   size, size, color);
+                }
+                col++;
+        }
+        col = 0;
+        bit <<= 1;
+        row++;
+    }
+}
+
 /**
  * @brief  TFT sanity test by drawing several image 
  */
@@ -826,6 +862,7 @@ static void tft_test(void)
     tft_draw_char('W', 30, 120, 6, WHITE, RED);
     tft_draw_string("abc", 0, 170, 3, BLACK, GREEN);
     tft_draw_number(-12345, 0, 200, 2, BLACK, GREEN);
+    tft_draw_char_only('G', 200, 200, 3, WHITE);
 }
 /*-----------------------------------------------------------------------------
  *  Initialization
@@ -855,6 +892,7 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_char = tft_draw_char;
     tft_services->draw_string = tft_draw_string;
     tft_services->draw_number = tft_draw_number;
+    tft_services->draw_char_only = tft_draw_char_only;
 
     /* SPI Component Services */
     spi = *spi_services;
