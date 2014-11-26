@@ -96,6 +96,8 @@ typedef struct
                            uint16_t size, uint16_t fgcolor, uint16_t bgcolor);
     void (*draw_char_only)(uint8_t ascii, uint16_t x, uint16_t y, 
                            uint16_t size, uint16_t color);
+    void (*draw_string_only)(char *string, uint16_t x, uint16_t y,
+                             uint16_t size, uint16_t color);
     void (*test)(void);
 } tft_services_t;
 

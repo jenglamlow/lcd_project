@@ -731,7 +731,7 @@ static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
 * @param fgcolor:   foreground color
 * @param bgcolor:   background color
 */
-void tft_draw_string(char *string, uint16_t x, uint16_t y,
+static void tft_draw_string(char *string, uint16_t x, uint16_t y,
                      uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
 {
     while(*string)
@@ -759,8 +759,8 @@ void tft_draw_string(char *string, uint16_t x, uint16_t y,
  *
  * @return:         The number of character printed for the number input
  */
-uint8_t tft_draw_number(int64_t long_num, uint16_t x, uint16_t y, 
-                        uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
+static uint8_t tft_draw_number(int64_t long_num, uint16_t x, uint16_t y, 
+                               uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
 {
     uint8_t char_buffer[10] = "";
     uint8_t i = 0;
@@ -799,7 +799,8 @@ uint8_t tft_draw_number(int64_t long_num, uint16_t x, uint16_t y,
         tft_draw_char('0'+ char_buffer[i - 1], x, y, size, fgcolor, bgcolor);
         if(x < MAX_X)
         {
-            x += TFT_FONT_SPACE*size;                                       /* Move cursor right            */
+            /* Move the cursor to right */
+            x += TFT_FONT_SPACE*size; 
         }
     }
     return f;
@@ -815,8 +816,8 @@ uint8_t tft_draw_number(int64_t long_num, uint16_t x, uint16_t y,
  * @param size:     Font size
  * @param color:    Font colour
  */
-void tft_draw_char_only(uint8_t ascii, uint16_t x, uint16_t y, 
-                        uint16_t size, uint16_t color) 
+static void tft_draw_char_only(uint8_t ascii, uint16_t x, uint16_t y, 
+                               uint16_t size, uint16_t color) 
 {
     uint8_t col = 0;
     uint8_t row = 0;
@@ -842,6 +843,30 @@ void tft_draw_char_only(uint8_t ascii, uint16_t x, uint16_t y,
 }
 
 /**
+* @brief  Draw string at (x,y) without background colour
+*
+* @param string:    String input. Eg: "abc"
+* @param x:         x coordinate
+* @param y:         y coordinate
+* @param size:      font size
+* @param color:     color
+*/
+static void tft_draw_string_only(char *string, uint16_t x, uint16_t y,
+                                 uint16_t size, uint16_t color)
+{
+    while(*string)
+    {
+        tft_draw_char_only(*string, x, y, size, color);
+        *string++;
+
+        if(x < MAX_X)
+        {
+            x += TFT_FONT_SPACE * size;
+        }
+    }
+}
+
+/**
  * @brief  TFT sanity test by drawing several image 
  */
 static void tft_test(void)
@@ -863,7 +888,10 @@ static void tft_test(void)
     tft_draw_string("abc", 0, 170, 3, BLACK, GREEN);
     tft_draw_number(-12345, 0, 200, 2, BLACK, GREEN);
     tft_draw_char_only('G', 200, 200, 3, WHITE);
+    tft_draw_string_only("Tesla", 100, 170, 3, WHITE);
 }
+
+
 /*-----------------------------------------------------------------------------
  *  Initialization
  *-----------------------------------------------------------------------------*/
@@ -893,6 +921,7 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_string = tft_draw_string;
     tft_services->draw_number = tft_draw_number;
     tft_services->draw_char_only = tft_draw_char_only;
+    tft_services->draw_string_only = tft_draw_string_only;
 
     /* SPI Component Services */
     spi = *spi_services;
