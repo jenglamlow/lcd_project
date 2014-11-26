@@ -694,7 +694,7 @@ static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
 {
     uint8_t f;
 
-    if((ascii>=32)&&(ascii<=127))
+    if((ascii >= 32) && (ascii <= 127))
     {
         ;
     }
@@ -745,6 +745,66 @@ void tft_draw_string(char *string, uint16_t x, uint16_t y,
         }
     }
 }
+
+
+/**
+ * @brief Print number character at (x,y) with foreground & background color 
+ *
+ * @param long_num: Number to be printed
+ * @param x:        x-coordinate
+ * @param y:        y-coordinate
+ * @param size:     Size of the number text
+ * @param fgcolor:  Foreground color
+ * @param bgcolor:  Background color
+ *
+ * @return:         The number of character printed for the number input
+ */
+uint8_t tft_draw_number(int64_t long_num, uint16_t x, uint16_t y, 
+                        uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
+{
+    uint8_t char_buffer[10] = "";
+    uint8_t i = 0;
+    uint8_t f = 0;
+
+    if (long_num < 0)
+    {
+        f = 1;
+        tft_draw_char('-',x, y, size, fgcolor, bgcolor);
+        long_num = -long_num;
+        if(x < MAX_X)
+        {
+            x += TFT_FONT_SPACE * size;        
+        }
+    }
+    else if (long_num == 0)
+    {
+        f = 1;
+        tft_draw_char('0', x, y, size, fgcolor, bgcolor);
+        return f;
+        if(x < MAX_X)
+        {
+            x += TFT_FONT_SPACE * size;       
+        }
+    }
+
+    while (long_num > 0)
+    {
+        char_buffer[i++] = long_num % 10;
+        long_num /= 10;
+    }
+
+    f = f+i;
+    for(; i > 0; i--)
+    {
+        tft_draw_char('0'+ char_buffer[i - 1], x, y, size, fgcolor, bgcolor);
+        if(x < MAX_X)
+        {
+            x += TFT_FONT_SPACE*size;                                       /* Move cursor right            */
+        }
+    }
+    return f;
+}
+
 /**
  * @brief  TFT sanity test by drawing several image 
  */
@@ -765,6 +825,7 @@ static void tft_test(void)
     tft_draw_char('j', 0, 120, 4, WHITE, RED);
     tft_draw_char('W', 30, 120, 6, WHITE, RED);
     tft_draw_string("abc", 0, 170, 3, BLACK, GREEN);
+    tft_draw_number(-12345, 0, 200, 2, BLACK, GREEN);
 }
 /*-----------------------------------------------------------------------------
  *  Initialization
@@ -792,6 +853,8 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_circle = tft_draw_circle;
     tft_services->test = tft_test;
     tft_services->draw_char = tft_draw_char;
+    tft_services->draw_string = tft_draw_string;
+    tft_services->draw_number = tft_draw_number;
 
     /* SPI Component Services */
     spi = *spi_services;
