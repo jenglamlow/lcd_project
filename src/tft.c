@@ -895,6 +895,8 @@ static void tft_running_animation(void)
 {
     static uint16_t i = 0;
     static uint16_t j = 0;
+    
+    i = i % 240;
 
     tft_fill_rectangle(i++, 0, 50, 50,BLACK);
     tft_fill_rectangle(i,0,50,50,BLUE);
