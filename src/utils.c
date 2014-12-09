@@ -80,6 +80,6 @@ void delay_ms(uint32_t ms)
     /* for(i=0; i<ms; i++){ */
     /*         delay_us(1000); */
     /* } */
-    ms = (ROM_SysCtlClockGet()/3)*ms/1000;
+    ms = (ROM_SysCtlClockGet()/3000)*ms;
     ROM_SysCtlDelay(ms);
 }

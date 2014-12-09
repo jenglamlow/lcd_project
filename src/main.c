@@ -114,9 +114,12 @@ int main()
     peripheral_init();
 
     tft.test();
+    delay_ms(3000);
+    tft.clear_screen();
 
     while(1)
     {
+        tft.running_animation();
     }
 }
 
