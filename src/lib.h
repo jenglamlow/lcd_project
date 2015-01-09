@@ -36,6 +36,8 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/gpio.h"
 
+/* Stellaris utility library */
+
 /* Helper library */
 #include "utils.h"
 

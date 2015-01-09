@@ -112,6 +112,7 @@ C_SRC += main.c
 C_SRC += spi.c
 C_SRC += tft.c
 C_SRC += utils.c
+C_SRC += uartstdio.c
 
 # Object File
 OBJS = $(addsuffix .o,$(addprefix $(OBJ_PATH)/,$(basename $(C_SRC))))

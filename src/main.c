@@ -28,6 +28,8 @@
 #include "spi.h"
 #include "tft.h"
 
+#include "uartstdio.h"
+
 /*-----------------------------------------------------------------------------
  *  Configurations
  *-----------------------------------------------------------------------------*/
@@ -117,9 +119,13 @@ int main()
     delay_ms(3000);
     tft.clear_screen();
 
+    UARTStdioConfig(0, 115200, 80000000);
+
+    UARTprintf("Hello");
+
     while(1)
     {
-        tft.running_animation();
+        /* tft.running_animation(); */
     }
 }
 

@@ -122,6 +122,11 @@ static void dma_init()
  *  IRQ Handler
  *-----------------------------------------------------------------------------*/
 
+static void ssi_irq_handler(void)
+{
+
+}
+
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
@@ -171,9 +176,15 @@ static void spi_open(spi_instance_t spi_instance)
                            25000000, 
                            8);
 
+    /* Register IRQ Callback */
+    /* SSIIntRegister(ssi_base_map[ssi_module], ssi_irq_handler); */
+
+    /* Enable Interrupt for SSI */
+    /* ROM_SSIIntEnable(ssi_base_map[ssi_module], SSI_TXFF | SSI_RXFF); */
+    
     /* Enable SSI module */
     ROM_SSIEnable(ssi_base_map[ssi_module]);
-    
+
     /* Clear any residual data */
     unsigned long dummy_read_buffer[8];
     while(ROM_SSIDataGetNonBlocking(ssi_base_map[ssi_module], 
@@ -186,7 +197,12 @@ static void spi_open(spi_instance_t spi_instance)
 */
 static void spi_close(spi_instance_t spi_instance)
 {
-    SSIDisable(spi_index_map[spi_instance]);
+    /* SSI module map based on spi instance */
+    uint8_t ssi_module = spi_index_map[spi_instance];
+
+    ROM_SSIIntDisable(ssi_base_map[ssi_module], SSI_TXFF);
+    ROM_SSIDisable(ssi_base_map[ssi_module]);
+    SSIIntUnregister(ssi_base_map[ssi_module]);
 }
 
 static void spi_write(spi_instance_t spi_instance,
