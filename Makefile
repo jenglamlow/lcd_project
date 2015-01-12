@@ -72,6 +72,8 @@ CFLAGS=-mthumb ${CPU} ${FPU} -O0 -ffunction-sections -fdata-sections -MD -std=c9
 CFLAGS+= ${INCLUDE_FLAG} -DPART_$(PART) -c -DTARGET_IS_BLIZZARD_RA1
 # Definition
 CFLAGS+= -DDEBUG
+# For UART-BUFFERED
+CFLAGS+= -DUART_BUFFERED
 # Flags for LD
 LFLAGS  = --gc-sections
 
@@ -113,6 +115,7 @@ C_SRC += spi.c
 C_SRC += tft.c
 C_SRC += utils.c
 C_SRC += uartstdio.c
+C_SRC += cmdline.c
 
 # Object File
 OBJS = $(addsuffix .o,$(addprefix $(OBJ_PATH)/,$(basename $(C_SRC))))
