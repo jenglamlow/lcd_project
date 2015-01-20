@@ -28,6 +28,7 @@
 #include "spi.h"
 #include "tft.h"
 
+#include "driverlib/uart.h"
 #include "uartstdio.h"
 #include "cmdline.h"
 
@@ -43,14 +44,14 @@
 
 typedef enum
 {
-    STATE_IDLE,
+    STATE_IDLE = 0,
     STATE_BUSY,
     STATE_COUNT
 } state_t;
 
 typedef enum
 {
-    EVENT_RECEIVE_APP_DATA,
+    EVENT_RECEIVE_APP_DATA = 0,
     EVENT_LCD_DONE,
     EVENT_COUNT
 } event_t;
@@ -60,7 +61,7 @@ typedef struct
     state_t state;
     event_t event;
     
-    uint8_t uart_rx_buffer[UART_BUFFER_SIZE];
+    char uart_rx_buffer[UART_BUFFER_SIZE];
 } main_info_t;
 
 typedef void (*action_t)(main_info_t *info);
@@ -77,8 +78,6 @@ typedef struct
  *-----------------------------------------------------------------------------*/
 static spi_services_t spi;
 static tft_services_t tft;
-
-static main_info_t main_info;
 
 static void send_tft(main_info_t *info);
 static void nop(main_info_t *info);
@@ -98,18 +97,20 @@ transition_table[STATE_COUNT][EVENT_COUNT] =
     }
 };
 
-static int process_cmd1(int argc, char *argv[]);
-static int process_cmd2(int argc, char *argv[]);
-static int process_cmd3(int argc, char *argv[]);
+int abc[] = {1,2,3};
+int apa = 1;
+
+int process_cmd1(int argc, char *argv[]);
+int process_cmd2(int argc, char *argv[]);
+int process_cmd3(int argc, char *argv[]);
 
 tCmdLineEntry g_sCmdTable[] = 
 {
     {"cmd1", process_cmd1, "Command 1"},
-    {"cmd2", process_cmd2, "Command 2"},
-    {"cmd3", process_cmd3, "Command 3"},
+    /* {"cmd2", process_cmd2, "Command 2"}, */
+    /* {"cmd3", process_cmd3, "Command 3"}, */
     {0, 0, 0}
 };
-
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -169,6 +170,22 @@ static void main_info_init(main_info_t *info)
     memset(&info->uart_rx_buffer[0], 0x00, UART_BUFFER_SIZE);
 }
 
+
+int process_cmd1(int argc, char *argv[])
+{
+    UARTprintf("CMD1-OK\r\n");
+
+    return 0;
+}
+int process_cmd2(int argc, char *argv[])
+{
+    return 0;
+}
+int process_cmd3(int argc, char *argv[])
+{
+    return 0;
+}
+
 /* State Machine Helper Function */
 static void update_state(main_info_t    *info,
                          state_t        state)
@@ -211,7 +228,16 @@ static void nop(main_info_t *info)
 
 static void send_tft(main_info_t *info)
 {
+    int uart_rx_data_num = UARTRxBytesAvail();
 
+    if (uart_rx_data_num > 0)
+    {
+        UARTgets(&info->uart_rx_buffer[0], uart_rx_data_num);
+    }
+
+    /* Parse the received UART data */
+    int command_result;
+    command_result = CmdLineProcess(&info->uart_rx_buffer[0]);
 }
 
 /*-----------------------------------------------------------------------------
@@ -229,30 +255,37 @@ static void send_tft(main_info_t *info)
 /*-----------------------------------------------------------------------------
  *  Main Routine
  *-----------------------------------------------------------------------------*/
-int main()
+int main(void)
 {
+    main_info_t main_info;
+
     main_info_init(&main_info);
     service_init();
     cpu_clock_init();
     peripheral_init();
     
-    UARTStdioConfig(0, 115200, 80000000);
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD);
 
-    tft.test();
-    delay_ms(3000);
-    tft.clear_screen();
+    ROM_GPIOPinConfigure(GPIO_PD6_U2RX);
+    ROM_GPIOPinConfigure(GPIO_PD7_U2TX);
+
+    ROM_GPIOPinTypeUART(GPIO_PORTD_BASE, GPIO_PIN_6 | GPIO_PIN_7);
+
+    /* ROM_UARTClockSourceSet(UART2_BASE, UART_CLOCK_SYSTEM); */
+    
+    UARTStdioConfig(2, 115200, SysCtlClockGet());
+
+    /* tft.test(); */
+    /* delay_ms(3000); */
+    /* tft.clear_screen(); */
     
     while(1)
     {
         /* tft.running_animation(); */
 
-        if (UARTPeek('\n'))
+        if (UARTPeek('\r') != -1)
         {
-            int uart_rx_data_num = UARTRxBytesAvail();
-            UARTgets(&main_info.uart_rx_buffer[0], uart_rx_data_num);
-
-            /* Parse the received UART data */
-            CmdLineProcess(0);
+            inject_event(&main_info, EVENT_RECEIVE_APP_DATA);
         }
     }
 }

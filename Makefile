@@ -113,7 +113,7 @@ C_SRC += $(STARTUP_FILE).c
 C_SRC += main.c
 C_SRC += spi.c
 C_SRC += tft.c
-C_SRC += utils.c
+C_SRC += utilities.c
 C_SRC += uartstdio.c
 C_SRC += cmdline.c
 

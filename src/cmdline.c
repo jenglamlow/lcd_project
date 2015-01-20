@@ -30,7 +30,7 @@
 //*****************************************************************************
 
 #include <string.h>
-#include "utils/cmdline.h"
+#include "cmdline.h"
 
 //*****************************************************************************
 //
@@ -62,7 +62,6 @@
 //! Otherwise it returns the code that was returned by the command function.
 //
 //*****************************************************************************
-
 int
 CmdLineProcess(char *pcCmdLine)
 {

@@ -41,6 +41,6 @@
 /* Stellaris utility library */
 
 /* Helper library */
-#include "utils.h"
+#include "utilities.h"
 
 #endif

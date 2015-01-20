@@ -153,7 +153,7 @@ static void spi_open(spi_instance_t spi_instance)
     ROM_GPIOPinConfigure(ssi_gpio_config_map[ssi_module][0]);
     ROM_GPIOPinConfigure(ssi_gpio_config_map[ssi_module][1]);
     ROM_GPIOPinConfigure(ssi_gpio_config_map[ssi_module][2]);
-    GPIOPinConfigure(ssi_gpio_config_map[ssi_module][3]);
+    ROM_GPIOPinConfigure(ssi_gpio_config_map[ssi_module][3]);
 
     /* Configure the GPIO settings for SSI pins */
     ROM_GPIOPinTypeSSI(ssi_gpio_port_map[ssi_module], 
