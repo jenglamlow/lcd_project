@@ -67,7 +67,7 @@ GDB     = ${PREFIX_ARM}-gdb
 GDBTUI  = ${PREFIX_ARM}-gdb -tui
 
 # Option arguments for C compiler.
-CFLAGS=-mthumb ${CPU} ${FPU} -O0 -ffunction-sections -fdata-sections -MD -std=c99 -Wall -pedantic -c -g
+CFLAGS=-mthumb ${CPU} ${FPU} -O0 -ffunction-sections -fdata-sections -MD -std=c99 -Wall -pedantic -c -g -lnosys
 # Library stuff passed as flags!
 CFLAGS+= ${INCLUDE_FLAG} -DPART_$(PART) -c -DTARGET_IS_BLIZZARD_RA1
 # Definition

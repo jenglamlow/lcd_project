@@ -71,6 +71,7 @@ extern void UARTFlushRx(void);
 extern int UARTRxBytesAvail(void);
 extern int UARTTxBytesFree(void);
 extern void UARTEchoSet(tBoolean bEnable);
+extern void UARTStdioIntHandler(void);
 #endif
 
 //*****************************************************************************
