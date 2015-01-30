@@ -79,6 +79,8 @@ typedef struct
 static spi_services_t spi;
 static tft_services_t tft;
 
+static main_info_t main_info;
+
 static void send_tft(main_info_t *info);
 static void nop(main_info_t *info);
 
@@ -101,8 +103,6 @@ int process_cmd1(int argc, char *argv[]);
 int process_cmd2(int argc, char *argv[]);
 int process_cmd3(int argc, char *argv[]);
 
-#if 1
-
 tCmdLineEntry g_sCmdTable[] = 
 {
     {"cmd1", process_cmd1, "cmd1 HelpFile"},
@@ -111,9 +111,6 @@ tCmdLineEntry g_sCmdTable[] =
     {0, 0, 0}
 };
 
-#endif
-
-int abc[] = {1,2,3};
 int apa = 4;
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -170,18 +167,20 @@ static void main_info_init(main_info_t *info)
     info->state = STATE_IDLE;
     info->event = EVENT_RECEIVE_APP_DATA;
 
-    memset(&info->uart_rx_buffer[0], 0x00, UART_BUFFER_SIZE);
+    memset(&info->uart_rx_buffer[0], 0, UART_BUFFER_SIZE);
 }
 
 
 int process_cmd1(int argc, char *argv[])
 {
-    /* UARTprintf("CMD1-OK\r\n"); */
+    UARTprintf("CMD1-OK %d\r\n", argc);
 
     return 0;
 }
 int process_cmd2(int argc, char *argv[])
 {
+    UARTprintf("CMD2-OK %d\r\n", argc);
+
     return 0;
 }
 int process_cmd3(int argc, char *argv[])
@@ -241,6 +240,8 @@ static void send_tft(main_info_t *info)
     /* Parse the received UART data */
     int command_result;
     command_result = CmdLineProcess(&info->uart_rx_buffer[0]);
+
+    inject_event(&main_info, EVENT_LCD_DONE);
 }
 
 /*-----------------------------------------------------------------------------
@@ -260,10 +261,7 @@ static void send_tft(main_info_t *info)
  *-----------------------------------------------------------------------------*/
 int main(void)
 {
-    abc[0] = 5;
     apa  = 7;
-
-    main_info_t main_info;
 
     main_info_init(&main_info);
     service_init();
@@ -274,30 +272,27 @@ int main(void)
     /* ROM_GPIOPinConfigure(GPIO_PD6_U2RX); */
     /* ROM_GPIOPinConfigure(GPIO_PD7_U2TX); */
 
-    /* ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB); */
-    /* ROM_GPIOPinConfigure(GPIO_PB0_U1RX); */
-    /* ROM_GPIOPinConfigure(GPIO_PB1_U1TX); */
-    /* ROM_GPIOPinTypeUART(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1); */
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+    ROM_GPIOPinConfigure(GPIO_PB0_U1RX);
+    ROM_GPIOPinConfigure(GPIO_PB1_U1TX);
+    ROM_GPIOPinTypeUART(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1);
     
-    /* UARTStdioConfig(1, 115200, SysCtlClockGet()); */
+    UARTStdioConfig(1, 115200, SysCtlClockGet());
 
-    /* ROM_UARTClockSourceSet(UART1_BASE, UART_CLOCK_SYSTEM); */
+    ROM_UARTClockSourceSet(UART1_BASE, UART_CLOCK_SYSTEM);
 
-    tft.test();
+    /* tft.test(); */
     /* delay_ms(3000); */
     /* tft.clear_screen(); */
     
-    /* UARTprintf("START %d\r\n", apa); */
+    UARTprintf("START %d\r\n", apa);
     while(1)
     {
         /* tft.running_animation(); */
 
-        /* if (UARTPeek('\r') != -1) */
+        if (UARTPeek('\r') != -1)
         {
-            /* send_tft(&main_info); */
-            /* tft.test(); */
-
-            /* inject_event(&main_info, EVENT_RECEIVE_APP_DATA); */
+            inject_event(&main_info, EVENT_RECEIVE_APP_DATA);
         }
     }
 }

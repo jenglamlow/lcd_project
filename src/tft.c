@@ -759,7 +759,7 @@ static void tft_draw_string(char *string, uint16_t x, uint16_t y,
  *
  * @return:         The number of character printed for the number input
  */
-static uint8_t tft_draw_number(int64_t long_num, uint16_t x, uint16_t y, 
+static uint8_t tft_draw_number(int long_num, uint16_t x, uint16_t y, 
                                uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
 {
     uint8_t char_buffer[10] = "";
@@ -776,6 +776,7 @@ static uint8_t tft_draw_number(int64_t long_num, uint16_t x, uint16_t y,
             x += TFT_FONT_SPACE * size;        
         }
     }
+
     else if (long_num == 0)
     {
         f = 1;
@@ -789,7 +790,7 @@ static uint8_t tft_draw_number(int64_t long_num, uint16_t x, uint16_t y,
 
     while (long_num > 0)
     {
-        char_buffer[i++] = long_num % 10;
+        char_buffer[i++] = (uint8_t)long_num % 10;
         long_num /= 10;
     }
 
@@ -903,7 +904,6 @@ static void tft_running_animation(void)
 
     tft_fill_circle(j++, 100, 10, BLACK);
     tft_fill_circle(j, 100, 10, WHITE);
-
 }
 /*-----------------------------------------------------------------------------
  *  Initialization
