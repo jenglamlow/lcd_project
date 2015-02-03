@@ -107,7 +107,7 @@ tCmdLineEntry;
 //! This is the command table that must be provided by the application.
 //
 //*****************************************************************************
-extern tCmdLineEntry g_sCmdTable[];
+extern const tCmdLineEntry g_sCmdTable[];
 
 //*****************************************************************************
 //

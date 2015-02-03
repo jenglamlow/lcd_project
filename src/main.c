@@ -103,7 +103,7 @@ int process_cmd1(int argc, char *argv[]);
 int process_cmd2(int argc, char *argv[]);
 int process_cmd3(int argc, char *argv[]);
 
-tCmdLineEntry g_sCmdTable[] = 
+const tCmdLineEntry g_sCmdTable[] = 
 {
     {"cmd1", process_cmd1, "cmd1 HelpFile"},
     {"cmd2", process_cmd2, "cmd2 HelpFile"},
@@ -170,24 +170,6 @@ static void main_info_init(main_info_t *info)
     memset(&info->uart_rx_buffer[0], 0, UART_BUFFER_SIZE);
 }
 
-
-int process_cmd1(int argc, char *argv[])
-{
-    UARTprintf("CMD1-OK %d\r\n", argc);
-
-    return 0;
-}
-int process_cmd2(int argc, char *argv[])
-{
-    UARTprintf("CMD2-OK %d\r\n", argc);
-
-    return 0;
-}
-int process_cmd3(int argc, char *argv[])
-{
-    return 0;
-}
-
 /* State Machine Helper Function */
 static void update_state(main_info_t    *info,
                          state_t        state)
@@ -223,12 +205,39 @@ static void inject_event(main_info_t   *info,
     transition_table[state][event].action(info);
 }
 
+int process_cmd1(int argc, char *argv[])
+{
+    UARTprintf("CMD1-OK %d\r\n", argc);
+
+    tft.fill_rectangle(100, 100, 50, 50, GREEN);
+
+    return 0;
+}
+
+int process_cmd2(int argc, char *argv[])
+{
+    UARTprintf("CMD2-OK %d\r\n", argc);
+
+    tft.draw_string("abc", 0, 170, 3, BLACK, GREEN);
+
+    return 0;
+}
+int process_cmd3(int argc, char *argv[])
+{
+    return 0;
+}
+
+
 static void nop(main_info_t *info)
 {
     /* Do Nothing */
 }
 
 static void send_tft(main_info_t *info)
+{
+}
+
+static void command_parser(main_info_t* info)
 {
     int uart_rx_data_num = UARTRxBytesAvail();
 
@@ -241,7 +250,8 @@ static void send_tft(main_info_t *info)
     int command_result;
     command_result = CmdLineProcess(&info->uart_rx_buffer[0]);
 
-    inject_event(&main_info, EVENT_LCD_DONE);
+    /* if (command_result == 0) */
+        /* inject_event(&main_info, EVENT_LCD_DONE); */
 }
 
 /*-----------------------------------------------------------------------------
@@ -250,7 +260,7 @@ static void send_tft(main_info_t *info)
 
 /*-----------------------------------------------------------------------------
  *  IRQ Handler
- *-----------------------------------------------------------------------------*/
+ *-------------------------)---------------------------------------------------*/
 
 /*-----------------------------------------------------------------------------
  *  Services
@@ -292,7 +302,10 @@ int main(void)
 
         if (UARTPeek('\r') != -1)
         {
-            inject_event(&main_info, EVENT_RECEIVE_APP_DATA);
+            /* inject_event(&main_info, EVENT_RECEIVE_APP_DATA); */
+            /* UARTIntDisable(UART1_BASE, UART_INT_RX); */
+            command_parser(&main_info);
+            /* UARTIntEnable(UART1_BASE, UART_INT_RX); */
         }
     }
 }
