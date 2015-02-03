@@ -116,6 +116,7 @@ C_SRC += tft.c
 C_SRC += utilities.c
 C_SRC += uartstdio.c
 C_SRC += cmdline.c
+C_SRC += cmdparser.c
 
 # Object File
 OBJS = $(addsuffix .o,$(addprefix $(OBJ_PATH)/,$(basename $(C_SRC))))
