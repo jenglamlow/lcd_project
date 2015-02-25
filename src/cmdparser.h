@@ -3,7 +3,7 @@
  *
  *       Filename:  cmdparser.h
  *
- *    Description:  
+ *    Description:  Header file for command Parser for UART message received 
  *
  *        Version:  1.0
  *        Created:  02/03/2015 07:32:27 PM
@@ -45,5 +45,6 @@
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
+void cmdparser_init(void);
 #endif
 

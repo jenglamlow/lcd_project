@@ -250,7 +250,8 @@ static void command_parser(main_info_t* info)
     int command_result;
     command_result = CmdLineProcess(&info->uart_rx_buffer[0]);
 
-    /* if (command_result == 0) */
+    if (command_result == CMDLINE_BAD_CMD)
+        UARTprintf("Bad Command\r\n");
         /* inject_event(&main_info, EVENT_LCD_DONE); */
 }
 
@@ -278,10 +279,6 @@ int main(void)
     cpu_clock_init();
     peripheral_init();
     
-    /* ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOD); */
-    /* ROM_GPIOPinConfigure(GPIO_PD6_U2RX); */
-    /* ROM_GPIOPinConfigure(GPIO_PD7_U2TX); */
-
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
     ROM_GPIOPinConfigure(GPIO_PB0_U1RX);
     ROM_GPIOPinConfigure(GPIO_PB1_U1TX);

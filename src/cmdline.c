@@ -69,7 +69,7 @@ CmdLineProcess(char *pcCmdLine)
     char *pcChar;
     int argc;
     int bFindArg = 1;
-    tCmdLineEntry *pCmdEntry;
+    const tCmdLineEntry *pCmdEntry;
 
     //
     // Initialize the argument counter, and point to the beginning of the
