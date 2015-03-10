@@ -43,6 +43,17 @@
 #define SIZE_LOW_INDEX  (2U)
 #define DATA_INDEX      (3U)
 
+/* Definition of CMD BLK index */
+#define BLK_X0_HIGH_INDEX   (3U)
+#define BLK_X0_LOW_INDEX    (4U)
+#define BLK_Y0_HIGH_INDEX   (5U)
+#define BLK_Y0_LOW_INDEX    (6U)
+#define BLK_X1_HIGH_INDEX   (7U)
+#define BLK_X1_LOW_INDEX    (8U)
+#define BLK_Y1_HIGH_INDEX   (9U)
+#define BLK_Y1_LOW_INDEX    (10U)
+#define BLK_COLOR_INDEX     (11U)
+
 #define MSG_SIZE (256U)
 
 /*-----------------------------------------------------------------------------
@@ -356,6 +367,21 @@ static void blk_action(void)
     uint16_t y0;
     uint16_t x1;
     uint16_t y1;
+    uint8_t color;
+
+    x0 = convert_to_word(cmd_info.buffer[BLK_X0_HIGH_INDEX], 
+                         cmd_info.buffer[BLK_X0_LOW_INDEX]);
+
+    y0 = convert_to_word(cmd_info.buffer[BLK_Y0_HIGH_INDEX], 
+                         cmd_info.buffer[BLK_Y0_LOW_INDEX]);
+
+    x1 = convert_to_word(cmd_info.buffer[BLK_X1_HIGH_INDEX], 
+                         cmd_info.buffer[BLK_X1_LOW_INDEX]);
+    
+    y1 = convert_to_word(cmd_info.buffer[BLK_Y1_HIGH_INDEX], 
+                         cmd_info.buffer[BLK_Y1_LOW_INDEX]);
+
+    color = cmd_info.buffer[BLK_COLOR_INDEX];
 }
 
 /*-----------------------------------------------------------------------------

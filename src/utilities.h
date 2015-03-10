@@ -50,6 +50,9 @@
  *  Services
  *-----------------------------------------------------------------------------*/
 
+uint16_t convert_to_word(uint8_t high_byte, 
+                         uint8_t low_byte);
+
 void delay_us(uint32_t us);
 
 void delay_ms(uint32_t ms);

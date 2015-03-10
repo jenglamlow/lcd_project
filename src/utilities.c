@@ -52,6 +52,11 @@ static void helper(void)
  *  Services
  *-----------------------------------------------------------------------------*/
 
+uint16_t convert_to_word(uint8_t high_byte, 
+                         uint8_t low_byte)
+{
+    return (uint16_t)(((uint16_t)(high_byte) << 16) | low_byte);
+}
 
 /**
  * @brief  Delay in microseconds (Blocking)
