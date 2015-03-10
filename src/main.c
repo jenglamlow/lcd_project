@@ -31,6 +31,7 @@
 #include "driverlib/uart.h"
 #include "uartstdio.h"
 #include "cmdline.h"
+#include "cmdparser.h"
 
 /*-----------------------------------------------------------------------------
  *  Configurations

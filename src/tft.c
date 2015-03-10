@@ -129,7 +129,7 @@
  *  Private Data
  *-----------------------------------------------------------------------------*/
 
-static spi_services_t   spi;
+static spi_services_t   *spi;
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -156,7 +156,7 @@ static void hw_init(void)
     CLEAR_RST_PIN;
 
     /* SPI module initialization */
-    spi.open(SPI_TFT);
+    spi->open(SPI_TFT);
 }
 
 /**
@@ -168,7 +168,7 @@ static void send_command(uint8_t cmd)
 {
     CLEAR_DC_PIN;
 
-    spi.write(SPI_TFT, cmd);
+    spi->write(SPI_TFT, cmd);
 }
 
 /**
@@ -180,7 +180,7 @@ static void send_data(uint8_t data)
 {
     SET_DC_PIN;
 
-    spi.write(SPI_TFT, data);
+    spi->write(SPI_TFT, data);
 }
 
 /**
@@ -195,8 +195,8 @@ static void send_word(uint16_t word)
 
     SET_DC_PIN;
 
-    spi.write(SPI_TFT, high_byte);
-    spi.write(SPI_TFT, low_byte);
+    spi->write(SPI_TFT, high_byte);
+    spi->write(SPI_TFT, low_byte);
 }
 
 /**
@@ -265,10 +265,10 @@ static void tft_clear_screen(void)
 
     for (uint16_t i=0; i<total_pixel; i++)
     {
-        spi.write(SPI_TFT,0);
-        spi.write(SPI_TFT,0);
-        spi.write(SPI_TFT,0);
-        spi.write(SPI_TFT,0);
+        spi->write(SPI_TFT,0);
+        spi->write(SPI_TFT,0);
+        spi->write(SPI_TFT,0);
+        spi->write(SPI_TFT,0);
     }
 }
 
@@ -282,7 +282,7 @@ static void tft_open(void)
     hw_init();
 
     /* strawman transfer */
-    spi.write(SPI_TFT,0);        
+    spi->write(SPI_TFT,0);        
 
     /* Reset TFT Pin */
     CLEAR_RST_PIN;
@@ -553,8 +553,8 @@ static void tft_fill_area(uint16_t x0, uint16_t y0,
     uint8_t low_color = color & 0xff;
     for(i=0; i < xy; i++)
     {
-        spi.write(SPI_TFT, high_color);
-        spi.write(SPI_TFT, low_color);
+        spi->write(SPI_TFT, high_color);
+        spi->write(SPI_TFT, low_color);
     }
 }
 
@@ -938,7 +938,7 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_string_only = tft_draw_string_only;
 
     /* SPI Component Services */
-    spi = *spi_services;
+    spi = spi_services;
 }
 
 

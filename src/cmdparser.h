@@ -41,10 +41,19 @@
  *  Services
  *-----------------------------------------------------------------------------*/
 
+typedef struct
+{
+
+    bool (*parse)(uint8_t byte);
+    
+    bool (*process)(uint8_t byte);
+
+} cmdparser_services_t;
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
-void cmdparser_init(void);
+void cmdparser_init(cmdparser_services_t* cmdparser);
+
 #endif
 
