@@ -160,7 +160,8 @@ static const cmd_invoke_action_t cmd_invoke[] =
 };
 
 /* Command parser service component */
-static cmdparser_services_t *cmdparser;
+static cmdparser_services_t     *cmdparser;
+static tft_services_t           *tft;
 
 /* Command State */
 static cmd_info_t cmd_info;
@@ -367,7 +368,7 @@ static void blk_action(void)
     uint16_t y0;
     uint16_t x1;
     uint16_t y1;
-    uint8_t color;
+    uint16_t color;
 
     x0 = convert_to_word(cmd_info.buffer[BLK_X0_HIGH_INDEX], 
                          cmd_info.buffer[BLK_X0_LOW_INDEX]);
@@ -381,7 +382,9 @@ static void blk_action(void)
     y1 = convert_to_word(cmd_info.buffer[BLK_Y1_HIGH_INDEX], 
                          cmd_info.buffer[BLK_Y1_LOW_INDEX]);
 
-    color = cmd_info.buffer[BLK_COLOR_INDEX];
+    color = (uint16_t)cmd_info.buffer[BLK_COLOR_INDEX];
+
+    tft->fill_area(x0, y0, x1, y1, color);
 }
 
 /*-----------------------------------------------------------------------------
@@ -443,9 +446,11 @@ bool cmdparser_process(uint8_t byte)
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
-void cmdparser_init(cmdparser_services_t* cmdparser_services)
+void cmdparser_init(cmdparser_services_t*   cmdparser_services,
+                    tft_services_t*         tft_services)
 {
     cmdparser = cmdparser_services;
+    tft = tft_services;
 
     cmdparser->parse = cmdparser_parse;
     cmdparser->process = cmdparser_process;

@@ -53,7 +53,7 @@ typedef struct
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
-void cmdparser_init(cmdparser_services_t* cmdparser);
-
+void cmdparser_init(cmdparser_services_t*   cmdparser_services,
+                    tft_services_t*         tft_services);
 #endif
 
