@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  cmdparser.h
+ *       Filename:  cmd_parser.h
  *
  *    Description:  Header file for command Parser for UART message received 
  *
@@ -15,8 +15,8 @@
  *
  * =====================================================================================
  */
-#ifndef CMDPARSER_H
-#define CMDPARSER_H
+#ifndef CMD_PARSER_H
+#define CMD_PARSER_H
 
 /*-----------------------------------------------------------------------------
  *  Includes
@@ -48,12 +48,12 @@ typedef struct
     
     bool (*process)(uint8_t byte);
 
-} cmdparser_services_t;
+} cmd_parser_services_t;
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
-void cmdparser_init(cmdparser_services_t*   cmdparser_services,
-                    tft_services_t*         tft_services);
+void cmd_parser_init(cmd_parser_services_t*   cmd_parser_services,
+                     tft_services_t*          tft_services);
 #endif
 

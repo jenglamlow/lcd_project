@@ -1,7 +1,7 @@
 /*
  * =====================================================================================
  *
- *       Filename:  cmdparser.c
+ *       Filename:  cmd_parser.c
  *
  *    Description:  Implementation file for command Parser for UART message received 
  *
@@ -24,18 +24,18 @@
 
 /* Local includes */
 #include "lib.h"
-#include "cmdparser.h"
+#include "cmd_parser.h"
 
 /*-----------------------------------------------------------------------------
  *  Configuration
  *-----------------------------------------------------------------------------*/
 
-#define CMD_STX (2U)
-#define CMD_ETX (3U)
+#define CMD_STX         (2U)
+#define CMD_ETX         (3U)
 
 /* Byte Order Definition */
-#define HIGH_BYTE (0U)
-#define LOW_BYTE  (1U)
+#define HIGH_BYTE       (0U)
+#define LOW_BYTE        (1U)
 
 /* Definition of buffer index */
 #define CMD_INDEX       (0U)
@@ -44,17 +44,26 @@
 #define DATA_INDEX      (3U)
 
 /* Definition of CMD BLK index */
-#define BLK_X0_HIGH_INDEX   (3U)
-#define BLK_X0_LOW_INDEX    (4U)
-#define BLK_Y0_HIGH_INDEX   (5U)
-#define BLK_Y0_LOW_INDEX    (6U)
-#define BLK_X1_HIGH_INDEX   (7U)
-#define BLK_X1_LOW_INDEX    (8U)
-#define BLK_Y1_HIGH_INDEX   (9U)
-#define BLK_Y1_LOW_INDEX    (10U)
-#define BLK_COLOR_INDEX     (11U)
+#define BLK_X0_HIGH     (3U)
+#define BLK_X0_LOW      (4U)
+#define BLK_Y0_HIGH     (5U)
+#define BLK_Y0_LOW      (6U)
+#define BLK_X1_HIGH     (7U)
+#define BLK_X1_LOW      (8U)
+#define BLK_Y1_HIGH     (9U)
+#define BLK_Y1_LOW      (10U)
+#define BLK_COLOR       (11U)
 
-#define MSG_SIZE (256U)
+/* Definition of CMD STR index */
+#define STR_X_HIGH      (3U)
+#define STR_X_LOW       (4U)
+#define STR_Y_HIGH      (5U)
+#define STR_Y_LOW       (6U)
+#define STR_FONT_SIZE   (7U)
+#define STR_COLOR       (8U)
+#define STR_TEXT        (9U)
+
+#define MSG_SIZE        (256U)
 
 /*-----------------------------------------------------------------------------
  *  Private Types
@@ -85,7 +94,7 @@ typedef struct
     /* Command Type */
     cmd_t       name;
 
-    /* Minimum cmd data size */
+    /* Expected minimum cmd data size */
     uint32_t    size;
 
 } cmd_definition_t;
@@ -134,12 +143,12 @@ static void blk_action(void);
 static void img_action(void);
 static void str_action(void);
 
-/* Command Table to store command list with expected data size */
+/* Command Table to store command list with expected minimum data size */
 static const cmd_definition_t cmd_table[MAX_CMD] = 
 {
-    {CMD_BLK, 4},
+    {CMD_BLK, 9},
     {CMD_IMG, 5},
-    {CMD_STR, 7}
+    {CMD_STR, 6}
 };
 
 /* Table storing command state function */
@@ -160,7 +169,7 @@ static const cmd_invoke_action_t cmd_invoke[] =
 };
 
 /* Command parser service component */
-static cmdparser_services_t     *cmdparser;
+static cmd_parser_services_t    *cmd_parser;
 static tft_services_t           *tft;
 
 /* Command State */
@@ -169,7 +178,6 @@ static cmd_info_t cmd_info;
 /*-----------------------------------------------------------------------------
  *  Private Function
  *-----------------------------------------------------------------------------*/
-
 /**
  * @brief   Get the current command parser state 
  *
@@ -211,9 +219,19 @@ static void reset_buffer(void)
     cmd_info.index = 0;
 }
 
-static uint32_t get_command_size(void)
+static cmd_t get_command(void)
 {
-    return cmd_info.index;
+    return cmd_info.cmd.name;
+}
+
+static uint32_t get_data_size(void)
+{
+    return cmd_info.size;
+}
+
+static uint32_t get_message_size(void)
+{
+    return (cmd_info.size + 3u);
 }
 
 /**
@@ -309,10 +327,10 @@ static void state_size(uint8_t byte)
 
         cmd_info.size = ((high_byte << 8) | low_byte);
 
-        /* Change the next expected byte to LOW_BYTE */
+        /* Change the next expected byte to HIGH_BYTE */
         data_byte = HIGH_BYTE;
 
-        if (cmd_info.size > cmd_info.cmd.size)
+        if (cmd_info.size >= cmd_info.cmd.size)
         {
             /* set state to STATE_EXPECT_DATA */
             set_state(STATE_EXPECT_DATA);
@@ -362,41 +380,77 @@ static void state_etx(uint8_t byte)
 
 static void blk_action(void)
 {
-    /* BLK, SIZE_H, SIZE_L, x0(H) ,x0(L) ,y0(H), y0(L), x1(H), x1(L), y1(H), i
+    /* CMD, SIZE_H, SIZE_L, x0(H) ,x0(L) ,y0(H), y0(L), x1(H), x1(L), y1(H),
      * y1(L), color */
     uint16_t x0;
     uint16_t y0;
     uint16_t x1;
     uint16_t y1;
-    uint16_t color;
+    uint8_t color;
 
-    x0 = convert_to_word(cmd_info.buffer[BLK_X0_HIGH_INDEX], 
-                         cmd_info.buffer[BLK_X0_LOW_INDEX]);
+    x0 = convert_to_word(cmd_info.buffer[BLK_X0_HIGH], 
+                         cmd_info.buffer[BLK_X0_LOW]);
 
-    y0 = convert_to_word(cmd_info.buffer[BLK_Y0_HIGH_INDEX], 
-                         cmd_info.buffer[BLK_Y0_LOW_INDEX]);
+    y0 = convert_to_word(cmd_info.buffer[BLK_Y0_HIGH], 
+                         cmd_info.buffer[BLK_Y0_LOW]);
 
-    x1 = convert_to_word(cmd_info.buffer[BLK_X1_HIGH_INDEX], 
-                         cmd_info.buffer[BLK_X1_LOW_INDEX]);
+    x1 = convert_to_word(cmd_info.buffer[BLK_X1_HIGH], 
+                         cmd_info.buffer[BLK_X1_LOW]);
     
-    y1 = convert_to_word(cmd_info.buffer[BLK_Y1_HIGH_INDEX], 
-                         cmd_info.buffer[BLK_Y1_LOW_INDEX]);
+    y1 = convert_to_word(cmd_info.buffer[BLK_Y1_HIGH], 
+                         cmd_info.buffer[BLK_Y1_LOW]);
 
-    color = (uint16_t)cmd_info.buffer[BLK_COLOR_INDEX];
+    color = cmd_info.buffer[BLK_COLOR];
 
     tft->fill_area(x0, y0, x1, y1, color);
+}
+
+static void img_action(void)
+{
+
+}
+
+static void str_action(void)
+{
+    /* CMD, SIZE_H, SIZE_L, x(H) ,x(L) ,y(H), y(L), font_size, color, 
+     * text.... */
+
+    uint16_t x;
+    uint16_t y;
+    uint8_t  font_size;
+    uint8_t  color;
+
+    x = convert_to_word(cmd_info.buffer[STR_X_HIGH], 
+                        cmd_info.buffer[STR_X_LOW]);
+
+    y = convert_to_word(cmd_info.buffer[STR_Y_HIGH], 
+                        cmd_info.buffer[STR_Y_LOW]);
+
+    font_size = cmd_info.buffer[STR_FONT_SIZE];
+
+    color = cmd_info.buffer[STR_COLOR];
+
+    char text[256];
+
+    /* 
+     * Size = total data byte size - 6 
+     * 6 = x(H) ,x(L) ,y(H), y(L), font_size, color 
+     */
+    memcpy(&text[0], &cmd_info.buffer[STR_TEXT], (cmd_info.size - 6));
+
+    tft->draw_string_only(&text[0], x, y, font_size, color);
 }
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
  *-----------------------------------------------------------------------------*/
 
-cmd_t cmdparser_get_command()
+cmd_t cmd_parser_get_command()
 {
     return cmd_info.cmd.name;
 }
 
-bool cmdparser_parse(uint8_t byte)
+bool cmd_parser_parse(uint8_t byte)
 {
     bool is_found;
     uint8_t state = (uint8_t)get_state();
@@ -413,16 +467,16 @@ bool cmdparser_parse(uint8_t byte)
     return is_found; 
 }
 
-bool cmdparser_process(uint8_t byte)
+bool cmd_parser_process(uint8_t byte)
 {
     bool is_done = false;
 
-    if (cmdparser_parse(byte))
+    if (cmd_parser_parse(byte))
     {
         /* If full message packet found */
 
         /* Get command from the packet */
-        uint8_t cmd_index = (uint8_t)cmdparser_get_command();
+        uint8_t cmd_index = (uint8_t)cmd_parser_get_command();
 
         /* Invoke Action based on command */ 
         cmd_invoke[cmd_index]();
@@ -446,14 +500,13 @@ bool cmdparser_process(uint8_t byte)
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
-void cmdparser_init(cmdparser_services_t*   cmdparser_services,
-                    tft_services_t*         tft_services)
+void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
+                     tft_services_t*        tft_services)
 {
-    cmdparser = cmdparser_services;
     tft = tft_services;
 
-    cmdparser->parse = cmdparser_parse;
-    cmdparser->process = cmdparser_process;
+    cmd_parser_services->parse = cmd_parser_parse;
+    cmd_parser_services->process = cmd_parser_process;
 
     /* Command Info Initialisation */
     cmd_info.message_found = false;
