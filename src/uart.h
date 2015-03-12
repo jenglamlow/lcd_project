@@ -1,0 +1,78 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  uart.h
+ *
+ *    Description:  Header file for UART component
+ *
+ *        Version:  1.0
+ *        Created:  03/10/2015 07:32:15 PM
+ *       Revision:  none
+ *       Compiler:  gcc
+ *
+ *         Author:  Low Jeng Lam (jeng), jenglamlow@gmail.com
+ *   Organization:  Malaysia
+ *
+ * =====================================================================================
+ */
+
+#ifndef UART_H_
+#define UART_H_
+
+/*----------------------------------------------------------------------------*/
+/* Includes                                                                   */
+/*----------------------------------------------------------------------------*/
+
+/* Local includes */
+#include "lib.h"
+
+/*----------------------------------------------------------------------------*/
+/* Types                                                                      */
+/*----------------------------------------------------------------------------*/
+
+/* UART driver list */
+typedef enum {
+    UART_CMD,
+} uart_instance_t;
+
+/*----------------------------------------------------------------------------*/
+/* Event call-backs                                                           */
+/*----------------------------------------------------------------------------*/
+
+/* Signal that there is data available to read */
+typedef void (*uart_data_available_cb_t)(void);
+
+/*----------------------------------------------------------------------------*/
+/* Services                                                                   */
+/*----------------------------------------------------------------------------*/
+
+/* Function Pointer for UART component service */
+typedef struct 
+{
+    /* Open UART communication */
+    void (*open)(uart_instance_t          uart_instance,
+                 uart_data_available_cb_t data_available_cb);
+
+    /* Read data from UART */
+    uint32_t (*read)(uart_instance_t    uart_instance,
+                     uint8_t            *buffer,
+                     uint32_t           buffer_size);
+
+    /* Write data to UART */
+    uint32_t (*write)(uart_instance_t       uart_instance,
+                      const uint8_t         *data,
+                      uint32_t              data_size);
+
+    /* Print function similar as C printf - for debugging */
+    void (*print)(const char *fmt, ...);
+
+} uart_services_t;
+
+/*----------------------------------------------------------------------------*/
+/* Initialisation                                                             */
+/*----------------------------------------------------------------------------*/
+
+/* UART driver component initialization */
+void uart_init(uart_services_t          *uart_services);
+
+#endif

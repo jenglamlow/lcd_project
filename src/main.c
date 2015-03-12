@@ -77,8 +77,10 @@ typedef struct
 /*-----------------------------------------------------------------------------
  *  Private Data
  *-----------------------------------------------------------------------------*/
+/* Service Initialization */
 static spi_services_t spi;
 static tft_services_t tft;
+static cmd_parser_services_t cmd_parser;
 
 static main_info_t main_info;
 
@@ -147,6 +149,7 @@ static void service_init(void)
     /* Initialize SPI Component */
     spi_init(&spi);
     tft_init(&tft, &spi);
+    cmd_parser_init(&cmd_parser, &tft);
 }
 
 /**
