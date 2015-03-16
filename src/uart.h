@@ -54,14 +54,14 @@ typedef struct
                  uart_data_available_cb_t data_available_cb);
 
     /* Read data from UART */
-    uint32_t (*read)(uart_instance_t    uart_instance,
-                     uint8_t            *buffer,
-                     uint32_t           buffer_size);
+    void (*read)(uart_instance_t    uart_instance,
+                 uint8_t            *buffer,
+                 uint32_t           buffer_size);
 
     /* Write data to UART */
-    uint32_t (*write)(uart_instance_t       uart_instance,
-                      const uint8_t         *data,
-                      uint32_t              data_size);
+    void (*write)(uart_instance_t       uart_instance,
+                  uint8_t         *data,
+                  uint32_t              data_size);
 
     /* Print function similar as C printf - for debugging */
     void (*print)(const char *fmt, ...);

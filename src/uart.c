@@ -24,13 +24,16 @@
 #include "uart.h"
 
 /* Third Party Library */
+#include "inc/hw_ints.h"
+#include "driverlib/uart.h"
+#include "ringbuf.h"
 
 /*----------------------------------------------------------------------------*/
 /* Configuration                                                              */
 /*----------------------------------------------------------------------------*/
 
 /* Number of UART Driver */
-#define UART_COUNT          (3U)
+#define UART_COUNT          (1U)
 
 /* UART Transmit Buffer Size */
 #define RX_BUFFER_SIZE      (512U)
@@ -42,31 +45,43 @@
 /* Constants                                                                  */
 /*----------------------------------------------------------------------------*/
 
+static const unsigned long uart_base[3] = 
+{
+    UART0_BASE,
+    UART1_BASE,
+    UART2_BASE
+};
+
+static const unsigned long uart_int[3] = 
+{
+    INT_UART0,
+    INT_UART1,
+    INT_UART2
+};
+
+static const unsigned long uart_peripheral[3] =
+{
+    SYSCTL_PERIPH_UART0, 
+    SYSCTL_PERIPH_UART1,
+    SYSCTL_PERIPH_UART2
+};
+
 /*----------------------------------------------------------------------------*/
 /* Private types                                                              */
 /*----------------------------------------------------------------------------*/
 
 /* State per UART device */
 typedef struct {
-    /* RX circular buffer - shared between ISR & Non-ISR */
-    /* Receive Buffer Write Index */
-    volatile uint32_t rx_write_ix;
 
-    /* Receive Buffer Read Index */
-    volatile uint32_t rx_read_ix;
+    /* Struture encapsulating ring buffer for tx and rx */
+    tRingBufObject tx_ringbuf_obj;
+    tRingBufObject rx_ringbuf_obj;
 
     /* Receive Buffer Array */
-    volatile uint8_t rx_buf[RX_BUFFER_SIZE];
-
-    /* TX circular buffer - shared between ISR & Non-ISR */
-    /* Transmit Buffer Write Index */
-    volatile uint32_t tx_write_ix;
-
-    /* Transmit Buffer Read Index */
-    volatile uint32_t tx_read_ix;
+    uint8_t rx_buffer[RX_BUFFER_SIZE];
 
     /* Transmit Buffer Array */
-    volatile uint8_t tx_buf[TX_BUFFER_SIZE];
+    uint8_t tx_buffer[TX_BUFFER_SIZE];
 
     /* Flag to indicate whether transmit operation is restart/completed */
     volatile bool tx_restart;
@@ -90,19 +105,6 @@ static uart_state_t uart_state[UART_COUNT];
 /* Event loop UART receive callback function */
 static void uart_rx_evl_cb(uint32_t ix)
 {
-    const uart_state_t *state = &uart_state[ix];
-
-    uint32_t rix = state->rx_read_ix;
-    uint32_t wix = state->rx_write_ix;
-
-    while (rix != wix)
-    {
-        /* Call component client to signal data available */
-        state->data_available_cb();
-
-        rix = state->rx_read_ix;
-        wix = state->rx_write_ix;
-    }
 
 }
 
@@ -190,102 +192,74 @@ static void uart_open(uart_instance_t          uart_instance,
     uart_state_t *state = &uart_state[uart_instance];
 
     /* Initialize the state */
-    state->rx_read_ix = 0;
-    state->rx_write_ix = 0;
-    state->tx_read_ix = 0;
-    state->tx_write_ix = 0;
     state->data_available_cb = data_available_cb;
 
     /* Allocate event loop callback */
 
     /* Allocate event loop for overrun assertion */
 
+    /* IO initialisation */
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+    ROM_GPIOPinConfigure(GPIO_PB0_U1RX);
+    ROM_GPIOPinConfigure(GPIO_PB1_U1TX);
+    ROM_GPIOPinTypeUART(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+
+    /* Enable UART Peripheral */
+    ROM_SysCtlPeripheralEnable(uart_peripheral[1]);
+
+    ROM_UARTConfigSetExpClk(uart_base[1], SysCtlClockGet(), 115200,
+                            (UART_CONFIG_PAR_NONE | UART_CONFIG_STOP_ONE |
+                            UART_CONFIG_WLEN_8));
+    
+    ROM_UARTClockSourceSet(UART1_BASE, UART_CLOCK_SYSTEM);
+
     /* Enable NVIC setting */
 
     /* Enable UART */
 }
 
-static uint32_t uart_read(uart_instance_t   uart_instance,
-                          uint8_t           *buffer,
-                          uint32_t          buffer_size)
+static void uart_read(uart_instance_t   uart_instance,
+                      uint8_t           *buffer,
+                      uint32_t          buffer_size)
 {
     ASSERT(buffer != 0);
     ASSERT(buffer_size > 0u);
+    ASSERT(uart_instance < UART_COUNT);
 
     uint32_t read_count = 0u;
 
-    if (((uint8_t)uart_instance < UART_COUNT) && (buffer != 0))
-    {
-        uart_state_t *state = &uart_state[uart_instance];
+    uart_state_t *state = &uart_state[uart_instance];
 
-        /* Disable RX interrupt */
+    /* Disable RX interrupt */
 
-        uint32_t rix = state->rx_read_ix;
-        while ((rix != state->rx_write_ix) &&
-               (read_count < buffer_size))
-        {
-            *(buffer) = state->rx_buf[rix];
-            buffer++;
-            rix++;
-            if (rix == RX_BUFFER_SIZE)
-            {
-                rix = 0;
-            }
-            read_count++;
-        }
-        state->rx_read_ix = rix;
+    
+    RingBufRead(&state->rx_ringbuf_obj, buffer, buffer_size);
 
-        /* Enable the RX interrupt */
-    }
-    return read_count;
+    /* Enable the RX interrupt */
 }
 
-static uint32_t uart_write(uart_instance_t  uart_instance,
-                           const uint8_t    *buffer,
-                           uint32_t         buffer_size)
+static void uart_write(uart_instance_t  uart_instance,
+                       uint8_t          *buffer,
+                       uint32_t         buffer_size)
 {
     ASSERT(buffer != 0);
     ASSERT(buffer_size > 0u);
+    ASSERT(uart_instance < UART_COUNT);
 
     uint32_t write_count = 0u;
 
-    if (((uint8_t)uart_instance < UART_COUNT) && (buffer != 0))
+    uart_state_t *state = &uart_state[uart_instance];
+
+    /* Disable the transmit interrupt */
+
+    RingBufWrite(&state->tx_ringbuf_obj, buffer, buffer_size);
+
+    if (state->tx_restart)
     {
-        uart_state_t *state = &uart_state[uart_instance];
-
-        /* Disable the transmit interrupt */
-
-        uint32_t wix = state->tx_write_ix;
-        uint32_t rix = state->tx_read_ix;
-        uint32_t next_ix;
-        while (write_count < buffer_size)
-        {
-            next_ix = wix + 1u;
-            if (next_ix == TX_BUFFER_SIZE)
-            {
-                next_ix = 0;
-            }
-            if (next_ix == rix)
-            {
-                /* No more room in TX buffer */
-                break;
-            }
-            state->tx_buf[wix] = *buffer;
-            buffer++;
-            wix = next_ix;
-            write_count++;
-        }
-        state->tx_write_ix = wix;
-
-
-        if (state->tx_restart)
-        {
-          state->tx_restart = false;
-        }
-
-        /* Enable the transmit interrupt */
+        state->tx_restart = false;
     }
-    return write_count;
+
+    /* Enable the transmit interrupt */
 }
 
 /* Print function similar as C printf - for debugging */
@@ -310,14 +284,22 @@ void uart_print(const char *fmt, ...)
 void uart_init(uart_services_t          *uart_services)
 {
     /* UART component initialization */
+    uart_services->open = uart_open;
+    uart_services->read = uart_read;
+    uart_services->write = uart_write;
+    uart_services->print = uart_print;
+
     uint8_t i;
     for (i = 0; i < UART_COUNT; i++)
     {
-        uart_state[i].rx_write_ix = 0;
-        uart_state[i].rx_read_ix = 0;
-        uart_state[i].tx_write_ix = 0;
-        uart_state[i].tx_read_ix = 0;
-        uart_state[i].tx_restart = true;
-        uart_state[i].data_available_cb = NULL;
+        RingBufInit(&uart_state[i].tx_ringbuf_obj, 
+                    uart_state[i].tx_buffer,
+                    sizeof(uart_state[i].tx_buffer));
+
+        RingBufInit(&uart_state[i].rx_ringbuf_obj, 
+                    uart_state[i].rx_buffer,
+                    sizeof(uart_state[i].rx_buffer));
+
+        uart_state[i].tx_restart = false;
     }
 }
