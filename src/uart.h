@@ -50,8 +50,7 @@ typedef void (*uart_data_available_cb_t)(void);
 typedef struct 
 {
     /* Open UART communication */
-    void (*open)(uart_instance_t          uart_instance,
-                 uart_data_available_cb_t data_available_cb);
+    void (*open)(uart_instance_t          uart_instance);
 
     /* Read data from UART */
     void (*read)(uart_instance_t    uart_instance,
