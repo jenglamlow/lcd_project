@@ -116,7 +116,7 @@ static void uart_overrun_assertion_cb(void)
 static void uart_transmit(uart_state_t* state)
 {
     uint32_t base = uart_base[state->instance];
-    uint8_t read_byte;
+    uint8_t write_byte;
 
     /* Check whether tx buffer contain any data */
     if (!RingBufEmpty(&state->tx_ringbuf_obj))
@@ -126,9 +126,9 @@ static void uart_transmit(uart_state_t* state)
 
         while(ROM_UARTSpaceAvail(base) && !RingBufEmpty(&state->tx_ringbuf_obj))
         {
-            RingBufRead(&state->tx_ringbuf_obj, &read_byte, 1);
+            RingBufRead(&state->tx_ringbuf_obj, &write_byte, 1);
 
-            ROM_UARTCharPutNonBlocking(base, read_byte);
+            ROM_UARTCharPutNonBlocking(base, write_byte);
         }
 
         /* Enable UART interrupt */
@@ -146,8 +146,8 @@ static void uart_irq(uart_instance_t uart_instance)
 {
     uint32_t status;
     uart_state_t *state = &uart_state[uart_instance];
-
     uint32_t base = uart_base[uart_instance];
+    uint8_t read_byte;
 
     /* Get UART Status Flag */
     status = ROM_UARTIntStatus(uart_base[uart_instance], true);
@@ -156,6 +156,22 @@ static void uart_irq(uart_instance_t uart_instance)
     ROM_UARTIntClear(uart_base[uart_instance], status);
 
     /* RX Interrupt */
+    if (status & UART_INT_RX)
+    {
+        /* Get all the available characters from the UART */
+        while(ROM_UARTCharsAvail(base))
+        {
+            /* Read a character */
+            read_byte = ROM_UARTCharGetNonBlocking(base);
+
+            /* Check if ring buffer is full */
+            if(!RingBufFull(&state->rx_ringbuf_obj))
+            {
+                /* Store read byte in ring buffer */
+                RingBufWrite(&state->rx_ringbuf_obj, &read_byte, 1);
+            }
+        }
+    }
 
     /* TX interrupt */
     if (status & UART_INT_TX)
@@ -169,57 +185,6 @@ static void uart_irq(uart_instance_t uart_instance)
             ROM_UARTIntDisable(base, UART_INT_TX);
         }
     }
-#if 0
-    if ((uart_sr_reg & HWA_USART_SR_RXNE_BIT) > 0u)
-    {
-        /* Get write index to the RX buffer and fill with available data */
-        uint32_t wix = state->rx_write_ix;
-
-        state->rx_buf[wix] = (uint8_t)hwa->read_reg32(dev, HWA_USART_DR_OFFSET);
-        wix++;
-        if (wix == RX_BUFFER_SIZE)
-        {
-            wix = 0;
-        }
-        state->rx_write_ix = wix;
-
-        /* Schedule a callback */
-        evl->schedule(state->evl_rx.handle);
-    }
-
-    /* TXE */
-    if ((uart_sr_reg & HWA_USART_SR_TXE_BIT) > 0u)
-    {
-        uint32_t wix = state->tx_write_ix;
-        uint32_t rix = state->tx_read_ix;
-
-        if (rix!= wix)
-        {
-            set_rts_bit(uart_instance, true);
-
-            hwa->write_reg32(dev,
-                            HWA_USART_DR_OFFSET,
-                            state->tx_buf[rix]);
-            rix++;
-            if (rix == TX_BUFFER_SIZE)
-            {
-                rix = 0;
-            }
-
-            state->tx_restart = false;
-            state->tx_read_ix = rix;
-        }
-        else
-        {
-            state->tx_restart = true;
-
-            /* Disable TX interrupt */
-            hwa->clear_bits_reg32(dev,
-                                 HWA_USART_CR1_OFFSET,
-                                 HWA_USART_CR1_TXEIE_BIT);
-        }
-    }
-#endif
 }
 
 /*----------------------------------------------------------------------------*/
