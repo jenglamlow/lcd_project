@@ -52,6 +52,9 @@ typedef struct
     /* Open UART communication */
     void (*open)(uart_instance_t          uart_instance);
 
+    /* Close UART communication */
+    void (*close)(uart_instance_t         uart_instance);
+
     /* Read data from UART */
     void (*read)(uart_instance_t    uart_instance,
                  uint8_t            *buffer,
@@ -59,8 +62,10 @@ typedef struct
 
     /* Write data to UART */
     void (*write)(uart_instance_t       uart_instance,
-                  uint8_t         *data,
+                  uint8_t               *data,
                   uint32_t              data_size);
+
+    uint32_t (*data_available)(uart_instance_t uart_instance);
 
     /* Print function similar as C printf - for debugging */
     void (*print)(const char *fmt, ...);

@@ -27,11 +27,11 @@
 /* Local includes */
 #include "spi.h"
 #include "tft.h"
+#include "uart.h"
+#include "cmd_parser.h"
 
-#include "driverlib/uart.h"
 #include "uartstdio.h"
 #include "cmdline.h"
-#include "cmd_parser.h"
 
 /*-----------------------------------------------------------------------------
  *  Configurations
@@ -80,6 +80,7 @@ typedef struct
 /* Service Initialization */
 static spi_services_t spi;
 static tft_services_t tft;
+static uart_services_t uart;
 static cmd_parser_services_t cmd_parser;
 
 static main_info_t main_info;
@@ -149,6 +150,7 @@ static void service_init(void)
     /* Initialize SPI Component */
     spi_init(&spi);
     tft_init(&tft, &spi);
+    uart_init(&uart);
     cmd_parser_init(&cmd_parser, &tft);
 }
 
@@ -157,13 +159,18 @@ static void service_init(void)
  */
 static void cpu_clock_init(void)
 {
-    /* Set Clock to 80Mhz */
+    /* Set System Clock to 80Mhz */
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_2_5 |
                        SYSCTL_USE_PLL |
                        SYSCTL_XTAL_16MHZ |
                        SYSCTL_OSC_MAIN);
 
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+
+    /* SysTick is set for delay_ms and delay_us */
+    ROM_SysTickPeriodSet(F_CPU / SYSTICKHZ);
+    ROM_SysTickEnable();
+    ROM_IntPrioritySet(FAULT_SYSTICK, SYSTICK_INT_PRIORITY);
 }
 
 static void main_info_init(main_info_t *info)
@@ -277,30 +284,24 @@ static void command_parser(main_info_t* info)
 int main(void)
 {
     apa  = 7;
+    uint8_t read_byte;
+    uint8_t write_data[] = "12345";
 
     main_info_init(&main_info);
     service_init();
     cpu_clock_init();
     peripheral_init();
-    
-    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
-    ROM_GPIOPinConfigure(GPIO_PB0_U1RX);
-    ROM_GPIOPinConfigure(GPIO_PB1_U1TX);
-    ROM_GPIOPinTypeUART(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-    
-    UARTStdioConfig(1, 115200, SysCtlClockGet());
 
-    ROM_UARTClockSourceSet(UART1_BASE, UART_CLOCK_SYSTEM);
-
-    /* tft.test(); */
-    /* delay_ms(3000); */
-    /* tft.clear_screen(); */
+    uart.open(UART_CMD);
     
-    UARTprintf("START %d\r\n", apa);
+
+    tft.test(); 
+    
     while(1)
     {
         /* tft.running_animation(); */
 
+#if 0
         if (UARTPeek('\r') != -1)
         {
             /* inject_event(&main_info, EVENT_RECEIVE_APP_DATA); */
@@ -308,5 +309,15 @@ int main(void)
             command_parser(&main_info);
             /* UARTIntEnable(UART1_BASE, UART_INT_RX); */
         }
+#endif
+
+        while (uart.data_available(UART_CMD))
+        {
+            uart.read(UART_CMD, &read_byte, 1);
+
+            cmd_parser.process(read_byte);
+        }
+        delay_ms(1000);
+        /* uart.write(UART_CMD, &write_data[0], sizeof(write_data)); */
     }
 }

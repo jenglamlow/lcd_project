@@ -22,11 +22,13 @@
 
 /* Local includes */
 #include "uart.h"
+#include "ringbuf.h"
 
 /* Third Party Library */
+/* #include <stdarg.h> */
+/* #include <stdio.h> */
 #include "inc/hw_ints.h"
 #include "driverlib/uart.h"
-#include "ringbuf.h"
 
 /*----------------------------------------------------------------------------*/
 /* Configuration                                                              */
@@ -187,6 +189,11 @@ static void uart_irq(uart_instance_t uart_instance)
     }
 }
 
+void UART1IntHandler(void)
+{
+    uart_irq(UART_CMD);
+}
+
 /*----------------------------------------------------------------------------*/
 /* Services                                                                   */
 /*----------------------------------------------------------------------------*/
@@ -225,10 +232,35 @@ static void uart_open(uart_instance_t          uart_instance)
     ROM_UARTIntEnable(base, UART_INT_RX);
     ROM_IntEnable(uart_int[1]);
 
-    /* Enable UART */
-    ROM_UARTEnable(uart_base[1]);
+    /* Enable FIFO */
+    ROM_UARTFIFOEnable(base);
 
-    ROM_UARTClockSourceSet(uart_base[1], UART_CLOCK_SYSTEM);
+    /* Enable UART */
+    ROM_UARTEnable(base);
+
+    /* Setting clock source for uart */
+    ROM_UARTClockSourceSet(base, UART_CLOCK_SYSTEM);
+}
+
+static void uart_close(uart_instance_t uart_instance)
+{
+    ASSERT(uart_instance < UART_COUNT);
+
+    uart_state_t *state = &uart_state[uart_instance];
+    uint32_t base = uart_base[uart_instance];
+
+    /* Disable FIFO */
+    ROM_UARTFIFODisable(base);
+
+    /* Disable UART INT */
+    ROM_UARTIntDisable(base, 0xFFFFFFFF);
+
+    /* Disable UART */
+    ROM_UARTDisable(base);
+
+    /* Empty ring buffer */
+    RingBufFlush(&state->rx_ringbuf_obj);
+    RingBufFlush(&state->tx_ringbuf_obj);
 }
 
 static void uart_read(uart_instance_t   uart_instance,
@@ -275,6 +307,15 @@ static void uart_write(uart_instance_t  uart_instance,
     ROM_UARTIntEnable(base, UART_INT_TX);
 }
 
+static uint32_t uart_data_available(uart_instance_t uart_instance)
+{
+    ASSERT(uart_instance < UART_COUNT);
+
+    uart_state_t *state = &uart_state[uart_instance];
+
+    return RingBufUsed(&state->rx_ringbuf_obj);
+}
+
 /* Print function similar as C printf - for debugging */
 void uart_print(const char *fmt, ...)
 {
@@ -286,7 +327,7 @@ void uart_print(const char *fmt, ...)
     va_end(args);
     uint32_t size = strlen(buf);
 
-    uart_write(UART_USB, (const uint8_t*)buf, size);
+    uart_write(UART_CMD, buf, size);
 #endif
 }
 
@@ -298,9 +339,11 @@ void uart_init(uart_services_t          *uart_services)
 {
     /* UART component initialization */
     uart_services->open = uart_open;
+    uart_services->close = uart_close;
     uart_services->read = uart_read;
     uart_services->write = uart_write;
     uart_services->print = uart_print;
+    uart_services->data_available = uart_data_available;
 
     uint8_t i;
     for (i = 0; i < UART_COUNT; i++)
@@ -312,6 +355,5 @@ void uart_init(uart_services_t          *uart_services)
         RingBufInit(&uart_state[i].rx_ringbuf_obj, 
                     uart_state[i].rx_buffer,
                     sizeof(uart_state[i].rx_buffer));
-
     }
 }

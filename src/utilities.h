@@ -42,6 +42,15 @@
 #define max(a,b) ((a)>(b)?(a):(b))
 #define constrain(amt,low,high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
+/* For SysTick */ 
+/* Hardcoded to 80Mhz clock frequency */
+#define F_CPU 80000000
+
+#define SYSTICKMS               (1000 / SYSTICKHZ)
+#define SYSTICKHZ               100
+
+#define SYSTICK_INT_PRIORITY    0x80
+
 /*-----------------------------------------------------------------------------
  *  Types
  *-----------------------------------------------------------------------------*/
