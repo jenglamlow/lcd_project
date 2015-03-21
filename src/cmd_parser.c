@@ -295,7 +295,7 @@ static void state_cmd(uint8_t byte)
         cmd_info.cmd.name = (cmd_t)byte;
         cmd_info.cmd.size = cmd_table[byte].size;
 
-        set_state(STATE_EXPECT_DATA);
+        set_state(STATE_EXPECT_SIZE);
     }
     else
     {
@@ -334,17 +334,31 @@ static void state_size(uint8_t byte)
         /* Change the next expected byte to HIGH_BYTE */
         data_byte = HIGH_BYTE;
 
-        if (cmd_info.size >= cmd_info.cmd.size)
+        /* Check whether there is any data input (Beside CMD & SIZE) */
+        if (cmd_info.size > 0)
         {
-            /* set state to STATE_EXPECT_DATA */
-            set_state(STATE_EXPECT_DATA);
+            /* 
+             * Go to STATE_EXPECT_DATA when data size is greater or equal to
+             * minimum expected size
+             */
+            if (cmd_info.size >= cmd_info.cmd.size)
+            {
+                /* set state to STATE_EXPECT_DATA */
+                set_state(STATE_EXPECT_DATA);
+            }
+            else
+            {
+                /* Receive data size is smaller than minimum size */
+                /* Reset back to STATE_EXPECT_STX */
+                set_state(STATE_EXPECT_STX);
+            }
         }
+        /* Jump to STATE_EXPECT_ETX when no data */
         else
         {
-            /* Receive data size is smaller than minimum size */
-            /* Reset back to STATE_EXPECT_STX */
-            set_state(STATE_EXPECT_STX);
+                set_state(STATE_EXPECT_ETX);
         }
+
 
     }
 
@@ -390,7 +404,7 @@ static void blk_action(void)
     uint16_t y0;
     uint16_t x1;
     uint16_t y1;
-    uint8_t color;
+    uint16_t color;
 
     x0 = convert_to_word(cmd_info.buffer[BLK_X0_HIGH], 
                          cmd_info.buffer[BLK_X0_LOW]);
@@ -404,7 +418,8 @@ static void blk_action(void)
     y1 = convert_to_word(cmd_info.buffer[BLK_Y1_HIGH], 
                          cmd_info.buffer[BLK_Y1_LOW]);
 
-    color = cmd_info.buffer[BLK_COLOR];
+    /* color = cmd_info.buffer[BLK_COLOR]; */
+    color = RED;
 
     tft->fill_area(x0, y0, x1, y1, color);
 }

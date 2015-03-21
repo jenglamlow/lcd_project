@@ -278,6 +278,10 @@ static void command_parser(main_info_t* info)
  *  Services
  *-----------------------------------------------------------------------------*/
 
+void main_nop(void)
+{
+
+}
 /*-----------------------------------------------------------------------------
  *  Main Routine
  *-----------------------------------------------------------------------------*/
@@ -294,7 +298,7 @@ int main(void)
     uart.open(UART_CMD);
     
     tft.test(); 
-    
+
     while(1)
     {
         /* tft.running_animation(); */
@@ -304,6 +308,7 @@ int main(void)
             uart.read(UART_CMD, &read_byte, 1);
 
             cmd_parser.process(read_byte);
+            main_nop();
             /* uart.write(UART_CMD, &read_byte, 1); */
         }
         /* delay_ms(1000); */

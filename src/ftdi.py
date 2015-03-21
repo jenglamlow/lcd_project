@@ -51,7 +51,7 @@ class Command:
         pass
 
     def construct_message(self):
-        param_size = len(self._param) + 2
+        param_size = len(self._param) - 1
         high_byte = (param_size >> 8) & 0xff
         low_byte = param_size & 0xff
 
@@ -62,9 +62,9 @@ class Command:
         message.append(high_byte)
         message.append(low_byte)
 
-        if len(self._param) > 1:
-            for i in range(len(self._param)):
-                message.append(self._param[i+1])
+        for i in range(len(self._param)):
+            if i > 0:
+                message.append(self._param[i])
 
         message.append(ETX)
 
@@ -85,6 +85,8 @@ class Command:
 
 # Command Class Initialisation
 clear_command = Command("Clear TFT", [CMD_CLR])
+block_command = Command(
+    "Draw Block TFT", [CMD_BLK, 0, 0, 0, 100, 0, 200, 0, 200, 2])
 
 
 class Ftdi:
@@ -104,6 +106,13 @@ class Ftdi:
         self.print_info(clear_command)
         self.ser.write(bytes(clear_command.message))
 
+    def block(self):
+        self.print_info(block_command)
+        self.ser.write(bytes(block_command.message))
+
+    def test_write(self):
+        self.ser.write(bytes([2, 3, 0, 0, 3]))
+
 
 # =============================================================================
 #    Main Program
@@ -114,7 +123,9 @@ print ("FTDI testing script")
 print ("===================")
 
 dev = Ftdi('/dev/ttyUSB0', 115200)
-dev.clear()
+dev.test_write()
+#dev.clear()
+#dev.block()
 
 print ("")
 
