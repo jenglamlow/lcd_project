@@ -85,6 +85,7 @@ typedef enum
     CMD_BLK = 0x00,
     CMD_IMG,
     CMD_STR,
+    CMD_CLR,
     MAX_CMD
 } cmd_t;
 
@@ -142,13 +143,15 @@ static void state_etx(uint8_t byte);
 static void blk_action(void);
 static void img_action(void);
 static void str_action(void);
+static void clr_action(void);
 
 /* Command Table to store command list with expected minimum data size */
 static const cmd_definition_t cmd_table[MAX_CMD] = 
 {
     {CMD_BLK, 9},
     {CMD_IMG, 5},
-    {CMD_STR, 6}
+    {CMD_STR, 6},
+    {CMD_CLR, 0}
 };
 
 /* Table storing command state function */
@@ -165,7 +168,8 @@ static const cmd_invoke_action_t cmd_invoke[] =
 {
     blk_action,
     img_action,
-    str_action
+    str_action,
+    clr_action
 };
 
 /* Command parser service component */
@@ -439,6 +443,13 @@ static void str_action(void)
     memcpy(&text[0], &cmd_info.buffer[STR_TEXT], (cmd_info.size - 6));
 
     tft->draw_string_only(&text[0], x, y, font_size, color);
+}
+
+static void clr_action(void)
+{
+    /* CMD, SIZE_H, SIZE_L */
+    
+    tft->clear_screen();
 }
 
 /*-----------------------------------------------------------------------------

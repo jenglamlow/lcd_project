@@ -272,7 +272,7 @@ static void command_parser(main_info_t* info)
 
 /*-----------------------------------------------------------------------------
  *  IRQ Handler
- *-------------------------)---------------------------------------------------*/
+ *-----------------------------------------------------------------------------*/
 
 /*-----------------------------------------------------------------------------
  *  Services
@@ -283,7 +283,6 @@ static void command_parser(main_info_t* info)
  *-----------------------------------------------------------------------------*/
 int main(void)
 {
-    apa  = 7;
     uint8_t read_byte;
     uint8_t write_data[] = "12345";
 
@@ -294,30 +293,20 @@ int main(void)
 
     uart.open(UART_CMD);
     
-
     tft.test(); 
     
     while(1)
     {
         /* tft.running_animation(); */
 
-#if 0
-        if (UARTPeek('\r') != -1)
-        {
-            /* inject_event(&main_info, EVENT_RECEIVE_APP_DATA); */
-            /* UARTIntDisable(UART1_BASE, UART_INT_RX); */
-            command_parser(&main_info);
-            /* UARTIntEnable(UART1_BASE, UART_INT_RX); */
-        }
-#endif
-
         while (uart.data_available(UART_CMD))
         {
             uart.read(UART_CMD, &read_byte, 1);
 
             cmd_parser.process(read_byte);
+            /* uart.write(UART_CMD, &read_byte, 1); */
         }
-        delay_ms(1000);
+        /* delay_ms(1000); */
         /* uart.write(UART_CMD, &write_data[0], sizeof(write_data)); */
     }
 }

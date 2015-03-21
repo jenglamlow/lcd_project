@@ -35,7 +35,7 @@
 /*----------------------------------------------------------------------------*/
 
 /* Number of UART Driver */
-#define UART_COUNT          (1U)
+#define UART_COUNT          (3U)
 
 /* UART Transmit Buffer Size */
 #define RX_BUFFER_SIZE      (512U)
@@ -47,21 +47,21 @@
 /* Constants                                                                  */
 /*----------------------------------------------------------------------------*/
 
-static const uint32_t uart_base[3] = 
+static const uint32_t uart_base[UART_COUNT] = 
 {
     UART0_BASE,
     UART1_BASE,
     UART2_BASE
 };
 
-static const uint32_t uart_int[3] = 
+static const uint32_t uart_int[UART_COUNT] = 
 {
     INT_UART0,
     INT_UART1,
     INT_UART2
 };
 
-static const uint32_t uart_peripheral[3] =
+static const uint32_t uart_peripheral[UART_COUNT] =
 {
     SYSCTL_PERIPH_UART0, 
     SYSCTL_PERIPH_UART1,
@@ -225,15 +225,15 @@ static void uart_open(uart_instance_t          uart_instance)
                             UART_CONFIG_WLEN_8));
     
     /* Set UART FIFO Level */
-    ROM_UARTFIFOLevelSet(base, UART_FIFO_TX4_8, UART_FIFO_RX4_8);
+    ROM_UARTFIFOLevelSet(base, UART_FIFO_TX1_8, UART_FIFO_RX1_8);
 
     /* UART Interrupt Setting */
     ROM_UARTIntDisable(base, 0xFFFFFFFF);
     ROM_UARTIntEnable(base, UART_INT_RX);
-    ROM_IntEnable(uart_int[1]);
+    ROM_IntEnable(uart_int[uart_instance]);
 
     /* Enable FIFO */
-    ROM_UARTFIFOEnable(base);
+    /* ROM_UARTFIFOEnable(base); */
 
     /* Enable UART */
     ROM_UARTEnable(base);
@@ -302,6 +302,7 @@ static void uart_write(uart_instance_t  uart_instance,
     ROM_UARTIntDisable(base, UART_INT_TX);
 
     RingBufWrite(&state->tx_ringbuf_obj, buffer, buffer_size);
+    uart_transmit(state);
 
     /* Enable the transmit interrupt */
     ROM_UARTIntEnable(base, UART_INT_TX);
