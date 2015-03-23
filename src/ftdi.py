@@ -201,7 +201,10 @@ class Ftdi:
         self.ser.write(bytes(command._command.packet))
 
     def test_write(self):
-        self.ser.write(bytes([2, 3, 0, 0, 3]))
+        test_data = [2, 3, 0, 0, 3]
+        print ("Sending testing command")
+        print ("Packet :", test_data)
+        self.ser.write(bytes(test_data))
 
 
 # =============================================================================
@@ -239,6 +242,10 @@ def image_action():
     pass
 
 
+def test_action():
+    dev.test_write()
+
+
 def errHandler():
     print("")
     print ("Invalid Input..")
@@ -248,6 +255,7 @@ action_map = {
     'b': block_action,
     't': string_action,
     'i': image_action,
+    '`': test_action,
 }
 
 # =============================================================================

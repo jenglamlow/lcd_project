@@ -158,7 +158,7 @@ static void uart_irq(uart_instance_t uart_instance)
     ROM_UARTIntClear(uart_base[uart_instance], status);
 
     /* RX Interrupt */
-    if (status & UART_INT_RX)
+    if (status & (UART_INT_RX | UART_INT_RT))
     {
         /* Get all the available characters from the UART */
         while(ROM_UARTCharsAvail(base))
@@ -229,7 +229,7 @@ static void uart_open(uart_instance_t          uart_instance)
 
     /* UART Interrupt Setting */
     ROM_UARTIntDisable(base, 0xFFFFFFFF);
-    ROM_UARTIntEnable(base, UART_INT_RX);
+    ROM_UARTIntEnable(base, UART_INT_RX | UART_INT_RT);
     ROM_IntEnable(uart_int[uart_instance]);
 
     /* Enable FIFO */
