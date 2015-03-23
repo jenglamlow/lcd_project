@@ -52,7 +52,8 @@
 #define BLK_X1_LOW      (8U)
 #define BLK_Y1_HIGH     (9U)
 #define BLK_Y1_LOW      (10U)
-#define BLK_COLOR       (11U)
+#define BLK_COLOR_HIGH  (11U)
+#define BLK_COLOR_LOW   (12U)
 
 /* Definition of CMD STR index */
 #define STR_X_HIGH      (3U)
@@ -148,7 +149,7 @@ static void clr_action(void);
 /* Command Table to store command list with expected minimum data size */
 static const cmd_definition_t cmd_table[MAX_CMD] = 
 {
-    {CMD_BLK, 9},
+    {CMD_BLK, 10},
     {CMD_IMG, 5},
     {CMD_STR, 6},
     {CMD_CLR, 0}
@@ -366,10 +367,10 @@ static void state_size(uint8_t byte)
 
 static void state_data(uint8_t byte)
 {
-    /* Data start from index 3 */
-    uint32_t index = cmd_info.index + 3;
+    uint32_t index = cmd_info.index;
     
-    if(index < cmd_info.size)
+    /* Total size + 3 (CMD, SIZE_H, SIZE_L) */
+    if (index < (cmd_info.size + 2))
     { 
         /* Buffer byte */
         store_buffer(byte);
@@ -399,7 +400,7 @@ static void state_etx(uint8_t byte)
 static void blk_action(void)
 {
     /* CMD, SIZE_H, SIZE_L, x0(H) ,x0(L) ,y0(H), y0(L), x1(H), x1(L), y1(H),
-     * y1(L), color */
+     * y1(L), color(H), color(L) */
     uint16_t x0;
     uint16_t y0;
     uint16_t x1;
@@ -418,8 +419,8 @@ static void blk_action(void)
     y1 = convert_to_word(cmd_info.buffer[BLK_Y1_HIGH], 
                          cmd_info.buffer[BLK_Y1_LOW]);
 
-    /* color = cmd_info.buffer[BLK_COLOR]; */
-    color = RED;
+    color = convert_to_word(cmd_info.buffer[BLK_COLOR_HIGH], 
+                            cmd_info.buffer[BLK_COLOR_LOW]);
 
     tft->fill_area(x0, y0, x1, y1, color);
 }
