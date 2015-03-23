@@ -61,8 +61,9 @@
 #define STR_Y_HIGH      (5U)
 #define STR_Y_LOW       (6U)
 #define STR_FONT_SIZE   (7U)
-#define STR_COLOR       (8U)
-#define STR_TEXT        (9U)
+#define STR_COLOR_HIGH  (8U)
+#define STR_COLOR_LOW   (9U)
+#define STR_TEXT        (10U)
 
 #define MSG_SIZE        (256U)
 
@@ -151,7 +152,7 @@ static const cmd_definition_t cmd_table[MAX_CMD] =
 {
     {CMD_BLK, 10},
     {CMD_IMG, 5},
-    {CMD_STR, 6},
+    {CMD_STR, 8},
     {CMD_CLR, 0}
 };
 
@@ -368,19 +369,20 @@ static void state_size(uint8_t byte)
 static void state_data(uint8_t byte)
 {
     uint32_t index = cmd_info.index;
-    
+
     /* Total size + 3 (CMD, SIZE_H, SIZE_L) */
-    if (index < (cmd_info.size + 2))
+    uint32_t size = cmd_info.size + 3;
+    
+    if (index < size)
     { 
         /* Buffer byte */
         store_buffer(byte);
-    }
-    else
-    {
-        /* Match expected size */
 
-        /* Set to EXPECT_ETX */
-        set_state(STATE_EXPECT_ETX);
+        /* Check whether index match the expected data size */
+        if (index == (size-1))
+        {
+            set_state(STATE_EXPECT_ETX);
+        }
     }
 }
 
@@ -437,8 +439,8 @@ static void str_action(void)
 
     uint16_t x;
     uint16_t y;
-    uint8_t  font_size;
-    uint8_t  color;
+    uint16_t font_size;
+    uint16_t color;
 
     x = convert_to_word(cmd_info.buffer[STR_X_HIGH], 
                         cmd_info.buffer[STR_X_LOW]);
@@ -446,10 +448,10 @@ static void str_action(void)
     y = convert_to_word(cmd_info.buffer[STR_Y_HIGH], 
                         cmd_info.buffer[STR_Y_LOW]);
 
-    font_size = cmd_info.buffer[STR_FONT_SIZE];
+    font_size = (uint16_t)cmd_info.buffer[STR_FONT_SIZE];
 
-    color = cmd_info.buffer[STR_COLOR];
-
+    color = convert_to_word(cmd_info.buffer[STR_COLOR_HIGH], 
+                            cmd_info.buffer[STR_COLOR_LOW]);
     char text[256];
 
     /* 

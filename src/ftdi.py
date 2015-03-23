@@ -165,7 +165,7 @@ class StringCommand:
 
         # text
         for i in range(len(text)):
-            param.append(text[i])
+            param.append(ord(text[i]))
 
         self._command.info = "Display " + text + " at " + str(pos) + \
             " with font_size " + str(font_size) + " and color " + color.name
@@ -219,7 +219,7 @@ clear_command = ClearCommand()
 
 block_command = BlockCommand([100, 100], [200, 200], Color.red)
 
-string_command = StringCommand([100, 100], 3, Color.blue, "TEXT")
+string_command = StringCommand([100, 100], 3, Color.yellow, "TEXT")
 
 # =============================================================================
 #    Action Function
