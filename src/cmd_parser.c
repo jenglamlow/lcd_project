@@ -436,6 +436,7 @@ static void str_action(void)
 {
     /* CMD, SIZE_H, SIZE_L, x(H) ,x(L) ,y(H), y(L), font_size, color, 
      * text.... */
+    char text[256] = "";
 
     uint16_t x;
     uint16_t y;
@@ -452,13 +453,12 @@ static void str_action(void)
 
     color = convert_to_word(cmd_info.buffer[STR_COLOR_HIGH], 
                             cmd_info.buffer[STR_COLOR_LOW]);
-    char text[256];
 
     /* 
-     * Size = total data byte size - 6 
-     * 6 = x(H) ,x(L) ,y(H), y(L), font_size, color 
+     * Size = total data byte size - 7 
+     * 6 = x(H) ,x(L) ,y(H), y(L), font_size, color(H), color(L)
      */
-    memcpy(&text[0], &cmd_info.buffer[STR_TEXT], (cmd_info.size - 6));
+    memcpy(&text[0], &cmd_info.buffer[STR_TEXT], (cmd_info.size - 7));
 
     tft->draw_string_only(&text[0], x, y, font_size, color);
 }

@@ -3,6 +3,8 @@
 # =============================================================================
 
 import serial
+import numpy
+from PIL import Image
 from enum import Enum
 
 # =============================================================================
@@ -177,6 +179,47 @@ class StringCommand:
         StringCommand.set_param(self, pos, font_size, color, text)
 
 
+class ImageCommand():
+
+    def set_param(self, pos, img):
+        try:
+            self._img = Image.open(img)
+        except:
+            raise
+
+        self._pos = pos
+        self._array = numpy.asarray(self._img)
+
+        # Convert 2D array to 1D
+        array_1d = self._array.ravel()
+
+        param = [CMD_IMG]
+
+        # Postion
+        param.append(high_byte(pos[0]))
+        param.append(low_byte(pos[0]))
+        param.append(high_byte(pos[1]))
+        param.append(low_byte(pos[1]))
+
+        # Width
+        param.append(high_byte(self._img.size[0]))
+        param.append(low_byte(self._img.size[0]))
+        # Height
+        param.append(high_byte(self._img.size[1]))
+        param.append(low_byte(self._img.size[1]))
+
+        # Image
+
+        # text
+        # for i in range(len(text)):
+        #     param.append(ord(text[i]))
+
+    def __init__(self, pos, img):
+        self._command = Command()
+
+        ImageCommand.set_param(self, pos, img)
+
+
 # =============================================================================
 #    Ftdi Class Definition
 # =============================================================================
@@ -219,7 +262,13 @@ clear_command = ClearCommand()
 
 block_command = BlockCommand([100, 100], [200, 200], Color.red)
 
-string_command = StringCommand([100, 100], 3, Color.yellow, "TEXT")
+block2_command = BlockCommand([10, 100], [50, 200], Color.blue)
+
+string_command = StringCommand([100, 100], 3, Color.yellow, "HELLO")
+
+string2_command = StringCommand([10, 200], 3, Color.green, "TESTING")
+
+image_command = ImageCommand([100, 100], "test.bmp")
 
 # =============================================================================
 #    Action Function
@@ -232,10 +281,12 @@ def clear_action():
 
 def block_action():
     dev.send(block_command)
+    dev.send(block2_command)
 
 
 def string_action():
     dev.send(string_command)
+    dev.send(string2_command)
 
 
 def image_action():
@@ -265,6 +316,13 @@ action_map = {
 print ("")
 print ("FTDI testing script")
 print ("===================")
+
+img = Image.open("test.bmp")
+arr = numpy.asarray(img)
+
+
+img_list = []
+
 
 while (True):
     print ("")
