@@ -4,6 +4,7 @@
 
 import serial
 import numpy
+import time
 from PIL import Image
 from enum import Enum
 
@@ -294,7 +295,14 @@ def image_action():
 
 
 def test_action():
-    dev.test_write()
+    clear_action()
+    time.sleep(0.5)
+
+    block_action()
+    time.sleep(0.5)
+
+    string_action()
+    time.sleep(0.5)
 
 
 def errHandler():
@@ -330,6 +338,7 @@ while (True):
     print ("b - Send Block")
     print ("t - Send Text")
     print ("i - Send Image")
+    print ("` - Test Program")
     print ("x - Exit")
 
     c = input("-->")

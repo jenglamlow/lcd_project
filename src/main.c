@@ -30,9 +30,6 @@
 #include "uart.h"
 #include "cmd_parser.h"
 
-#include "uartstdio.h"
-#include "cmdline.h"
-
 /*-----------------------------------------------------------------------------
  *  Configurations
  *-----------------------------------------------------------------------------*/
@@ -103,19 +100,6 @@ transition_table[STATE_COUNT][EVENT_COUNT] =
     }
 };
 
-int process_cmd1(int argc, char *argv[]);
-int process_cmd2(int argc, char *argv[]);
-int process_cmd3(int argc, char *argv[]);
-
-const tCmdLineEntry g_sCmdTable[] = 
-{
-    {"cmd1", process_cmd1, "cmd1 HelpFile"},
-    {"cmd2", process_cmd2, "cmd2 HelpFile"},
-    {"cmd3", process_cmd3, "cmd3 HelpFile"},
-    {0, 0, 0}
-};
-
-int apa = 4;
 /*-----------------------------------------------------------------------------
  *  Helper Functions
  *-----------------------------------------------------------------------------*/
@@ -216,28 +200,6 @@ static void inject_event(main_info_t   *info,
     transition_table[state][event].action(info);
 }
 
-int process_cmd1(int argc, char *argv[])
-{
-    UARTprintf("CMD1-OK %d\r\n", argc);
-
-    tft.fill_rectangle(100, 100, 50, 50, GREEN);
-
-    return 0;
-}
-
-int process_cmd2(int argc, char *argv[])
-{
-    UARTprintf("CMD2-OK %d\r\n", argc);
-
-    tft.draw_string("abc", 0, 170, 3, BLACK, GREEN);
-
-    return 0;
-}
-int process_cmd3(int argc, char *argv[])
-{
-    return 0;
-}
-
 
 static void nop(main_info_t *info)
 {
@@ -246,24 +208,6 @@ static void nop(main_info_t *info)
 
 static void send_tft(main_info_t *info)
 {
-}
-
-static void command_parser(main_info_t* info)
-{
-    int uart_rx_data_num = UARTRxBytesAvail();
-
-    if (uart_rx_data_num > 0)
-    {
-        UARTgets(&info->uart_rx_buffer[0], uart_rx_data_num);
-    }
-
-    /* Parse the received UART data */
-    int command_result;
-    command_result = CmdLineProcess(&info->uart_rx_buffer[0]);
-
-    if (command_result == CMDLINE_BAD_CMD)
-        UARTprintf("Bad Command\r\n");
-        /* inject_event(&main_info, EVENT_LCD_DONE); */
 }
 
 /*-----------------------------------------------------------------------------
