@@ -24,7 +24,6 @@
 
 /* Third party libraries include */
 #include "driverlib/ssi.h"
-#include "driverlib/udma.h"
 
 /* Local includes */
 
@@ -99,27 +98,6 @@ static const uint32_t ssi_int_map[] =
 /*-----------------------------------------------------------------------------
  *  Helper Functions
  *-----------------------------------------------------------------------------*/
-
-static void dma_init()
-{
-
-    /* Enable DMA for SSI0 TX */
-    SSIDMAEnable(SSI0_BASE, SSI_DMA_TX);
-
-    /* DMA channel control */
-    /* uDMAChannelControlSet(UDMA_CHANNEL_SSI0TX, */ 
-    /*                       UDMA_SIZE_8| UDMA_SRC_INC_NONE| UDMA_DST_INC| */
-    /*                       UDMA_ARB_4); */
-
-    /* uDMAChannelTransferSet(UDMA_CHANNEL_SSI0TX, */
-    /*                        UDMA_MODE_BASIC, */
-    /*                        (void*)&data) */
-
-    /* Enable uDMA channel for SSI0TX */
-    uDMAChannelEnable(UDMA_CHANNEL_SSI0TX);
-
-    /* IntEnable(INT_SSI0); */
-}
 
 /*-----------------------------------------------------------------------------
  *  Event call-backs
