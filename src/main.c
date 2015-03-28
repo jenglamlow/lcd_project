@@ -138,7 +138,7 @@ static void service_init(void)
     evl_init(&evl);
     spi_init(&spi);
     tft_init(&tft, &spi);
-    uart_init(&uart);
+    uart_init(&uart, &evl);
     cmd_parser_init(&cmd_parser, &uart, &tft);
 }
 
@@ -244,11 +244,12 @@ int main(void)
 
     tft.test(); 
 
+    evl.run();
+
     while(1)
     {
         /* tft.running_animation(); */
 
-        cmd_parser.run();
         /* delay_ms(1000); */
         /* uart.write(UART_CMD, &write_data[0], sizeof(write_data)); */
     }

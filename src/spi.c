@@ -185,9 +185,9 @@ static void spi_open(spi_instance_t spi_instance)
                            8);
 
     /* Enable Interrupt for SSI */
-    ROM_SSIIntDisable(base, 0xFFFFFFFF);
-    ROM_SSIIntEnable(base, SSI_TXFF | SSI_RXFF | SSI_RXTO);
-    ROM_IntEnable(ssi_int_map[ssi_module]);
+    /* ROM_SSIIntDisable(base, 0xFFFFFFFF); */
+    /* ROM_SSIIntEnable(base, SSI_TXFF | SSI_RXFF | SSI_RXTO); */
+    /* ROM_IntEnable(ssi_int_map[ssi_module]); */
     
     /* Enable SSI module */
     ROM_SSIEnable(base);

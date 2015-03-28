@@ -182,7 +182,7 @@ static uart_services_t          *uart;
 static cmd_info_t cmd_info;
 
 /*-----------------------------------------------------------------------------
- *  Private Function
+ *  Helper Functions
  *-----------------------------------------------------------------------------*/
 /**
  * @brief   Get the current command parser state 
@@ -470,14 +470,12 @@ static void clr_action(void)
     tft->clear_screen();
 }
 
-/*-----------------------------------------------------------------------------
- *  Helper Functions
- *-----------------------------------------------------------------------------*/
 
-cmd_t cmd_parser_get_command()
+static cmd_t cmd_parser_get_command()
 {
     return cmd_info.cmd.name;
 }
+
 
 static bool cmd_parser_parse(uint8_t byte)
 {
@@ -516,22 +514,27 @@ static bool cmd_parser_process(uint8_t byte)
     return is_done;
 }
 
-static void cmd_parser_run(void)
+/*-----------------------------------------------------------------------------
+ *  Event Callback Functons
+ *-----------------------------------------------------------------------------*/
+
+static void pc_data_available_cb(void)
 {
     uint8_t read_byte;
+    
+    uart->read(UART_CMD, &read_byte, 1);
 
-    while (uart->data_available(UART_CMD))
-    {
-        uart->read(UART_CMD, &read_byte, 1);
-
-        cmd_parser_process(read_byte);
-    }
+    cmd_parser_process(read_byte);
 }
+
+/*-----------------------------------------------------------------------------
+ *  Services
+ *-----------------------------------------------------------------------------*/
 
 static void cmd_parser_start(void)
 {
     /* Start UART Service */
-    uart->open(UART_CMD);
+    uart->open(UART_CMD, pc_data_available_cb);
 }
 
 static void cmd_parser_stop(void)
@@ -539,14 +542,6 @@ static void cmd_parser_stop(void)
     /* Close UART Service */
     uart->close(UART_CMD);
 }
-
-/*-----------------------------------------------------------------------------
- *  Event call-backs
- *-----------------------------------------------------------------------------*/
-
-/*-----------------------------------------------------------------------------
- *  Services
- *-----------------------------------------------------------------------------*/
 
 /*-----------------------------------------------------------------------------
  *  Initialisation
@@ -563,7 +558,6 @@ void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
     cmd_parser_services->process = cmd_parser_process;
     cmd_parser_services->start = cmd_parser_start;
     cmd_parser_services->stop = cmd_parser_stop;
-    cmd_parser_services->run = cmd_parser_run;
 
     /* Command Info Initialisation */
     cmd_info.message_found = false;

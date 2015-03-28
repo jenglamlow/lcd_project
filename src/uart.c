@@ -29,6 +29,7 @@
 /* #include <stdio.h> */
 #include "inc/hw_ints.h"
 #include "driverlib/uart.h"
+#include "driverlib/interrupt.h"
 
 /*----------------------------------------------------------------------------*/
 /* Configuration                                                              */
@@ -88,6 +89,9 @@ typedef struct {
     /* Transmit Buffer Array */
     uint8_t tx_buffer[TX_BUFFER_SIZE];
 
+    /* Receive Event Handle */
+    evl_cb_handle_t evl_rx_handle;
+
     /* Client data available callback */
     uart_data_available_cb_t data_available_cb;
 
@@ -97,23 +101,15 @@ typedef struct {
 /* Private data                                                               */
 /*----------------------------------------------------------------------------*/
 
+/* Event Loop Component */
+static evl_services_t *evl;
+
 /* Per-UART state */
 static uart_state_t uart_state[UART_COUNT];
 
 /*----------------------------------------------------------------------------*/
 /* Helper functions                                                           */
 /*----------------------------------------------------------------------------*/
-
-/* Event loop UART receive callback function */
-static void uart_rx_evl_cb(uint32_t ix)
-{
-
-}
-
-static void uart_overrun_assertion_cb(void)
-{
-    /* Trigger Assertion */
-}
 
 static void uart_transmit(uart_state_t* state)
 {
@@ -138,6 +134,39 @@ static void uart_transmit(uart_state_t* state)
     }
 }
 
+static uint32_t uart_data_available(uart_instance_t uart_instance)
+{
+    ASSERT(uart_instance < UART_COUNT);
+
+    uart_state_t *state = &uart_state[uart_instance];
+
+    return RingBufUsed(&state->rx_ringbuf_obj);
+}
+
+/*----------------------------------------------------------------------------*/
+/* Event Callback Function                                                    */
+/*----------------------------------------------------------------------------*/
+
+/* Event loop UART receive callback function */
+static void uart_rx_evl_cb(uint8_t ix)
+{
+    uart_state_t *state = &uart_state[ix];
+
+    if (uart_data_available(state->instance))
+    {
+        state->data_available_cb();
+    }
+
+    /* Reschedule the uart data available event if still contains data */
+    if (uart_data_available(state->instance))
+    {
+        IntMasterDisable();
+
+        evl->schedule(state->evl_rx_handle);
+        
+        IntMasterEnable();
+    }
+}
 
 /*----------------------------------------------------------------------------*/
 /* IRQ handlers                                                               */
@@ -173,6 +202,10 @@ static void uart_irq(uart_instance_t uart_instance)
                 RingBufWrite(&state->rx_ringbuf_obj, &read_byte, 1);
             }
         }
+
+        /* Schedule Receive Event */
+        evl->schedule(state->evl_rx_handle);
+
     }
 
     /* TX interrupt */
@@ -198,9 +231,11 @@ void UART1IntHandler(void)
 /* Services                                                                   */
 /*----------------------------------------------------------------------------*/
 
-static void uart_open(uart_instance_t          uart_instance)
+static void uart_open(uart_instance_t          uart_instance,
+                      uart_data_available_cb_t uart_data_available_cb)
 {
     ASSERT(uart_instance < UART_COUNT);
+    ASSERT(uart_data_available_cb != NULL);
 
     uart_state_t *state = &uart_state[uart_instance];
     uint32_t base = uart_base[uart_instance];
@@ -208,8 +243,8 @@ static void uart_open(uart_instance_t          uart_instance)
     /* UART State Initialization */
     state->instance = uart_instance;
 
-    /* Allocate event loop callback */
-    /* Allocate event loop for overrun assertion */
+    /* Subscribe uart data available callback */
+    state->data_available_cb = uart_data_available_cb;
 
     /* IO initialisation */
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
@@ -308,14 +343,6 @@ static void uart_write(uart_instance_t  uart_instance,
     ROM_UARTIntEnable(base, UART_INT_TX);
 }
 
-static uint32_t uart_data_available(uart_instance_t uart_instance)
-{
-    ASSERT(uart_instance < UART_COUNT);
-
-    uart_state_t *state = &uart_state[uart_instance];
-
-    return RingBufUsed(&state->rx_ringbuf_obj);
-}
 
 /* Print function similar as C printf - for debugging */
 void uart_print(const char *fmt, ...)
@@ -336,17 +363,21 @@ void uart_print(const char *fmt, ...)
 /* Initialisation                                                             */
 /*----------------------------------------------------------------------------*/
 
-void uart_init(uart_services_t          *uart_services)
+void uart_init(uart_services_t          *uart_services,
+               evl_services_t           *evl_services)
 {
+    evl = evl_services;
+
     /* UART component initialization */
     uart_services->open = uart_open;
     uart_services->close = uart_close;
     uart_services->read = uart_read;
     uart_services->write = uart_write;
     uart_services->print = uart_print;
-    uart_services->data_available = uart_data_available;
 
     uint8_t i;
+    bool is_alloc = false;
+
     for (i = 0; i < UART_COUNT; i++)
     {
         RingBufInit(&uart_state[i].tx_ringbuf_obj, 
@@ -356,5 +387,12 @@ void uart_init(uart_services_t          *uart_services)
         RingBufInit(&uart_state[i].rx_ringbuf_obj, 
                     uart_state[i].rx_buffer,
                     sizeof(uart_state[i].rx_buffer));
+
+        if (!is_alloc)
+        {
+            uart_state[i].evl_rx_handle = evl->cb_alloc(uart_rx_evl_cb, i);
+        }
     }
+
+    is_alloc = true;
 }

@@ -48,17 +48,17 @@ typedef struct
     evl_cb_t                evl_cb;
 
     /* Event index (To differentiate the index of same callback) */
-    uint32_t                index;
+    uint16_t                index;
 
     /* Shared between ISR and non-ISR context. */
     /* Schedule flag */
     volatile bool           is_scheduled;
 
     /* Next Event Handle */
-    volatile uint32_t       next_handle;
+    volatile uint16_t       next_handle;
 
     /* Previous Event Handle */
-    volatile uint32_t       prev_handle;
+    volatile uint16_t       prev_handle;
 } evt_t;
 
 /*---------------------------------------------------------------------------*/
@@ -67,13 +67,13 @@ typedef struct
 
 /* Shared between ISR and non-ISR context. */
 /* Handle for the first event in queue. */
-static volatile uint32_t head_handle;
+static volatile uint16_t head_handle;
 
 /* Handle for the last event in queue. */
-static volatile uint32_t tail_handle;
+static volatile uint16_t tail_handle;
 
 /* Number of events in queue. */
-static volatile uint32_t size;
+static volatile uint16_t size;
 
 /* Array of events. */
 static evt_t event_array[MAX_EVENT];
@@ -92,7 +92,7 @@ static bool terminate;
 /*---------------------------------------------------------------------------*/
 
 /* Get current number of events in queue. */
-static uint32_t get_queue_size(void)
+static uint16_t get_queue_size(void)
 {
     return size;
 }
@@ -199,7 +199,7 @@ static void evl_run(void)
  * To allocate a callback handle used to schedule callbacks from ISR context. 
  */
 static evl_cb_handle_t evl_cb_alloc(evl_cb_t evl_cb,
-                                    uint32_t index)
+                                    uint8_t index)
 {
     ASSERT(free_list_index < MAX_EVENT);
     ASSERT(evl_cb != NULL);

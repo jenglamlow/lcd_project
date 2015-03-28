@@ -31,7 +31,7 @@
 /*---------------------------------------------------------------------------*/
 
 /* Handle used for scheduling callbacks. */
-typedef uint32_t evl_cb_handle_t;
+typedef uint16_t evl_cb_handle_t;
 
 /*---------------------------------------------------------------------------*/
 /* Constants                                                                 */
@@ -42,7 +42,7 @@ typedef uint32_t evl_cb_handle_t;
 /*---------------------------------------------------------------------------*/
 
 /* Event loop callback in non-ISR context. */
-typedef void (*evl_cb_t)(uint32_t index);
+typedef void (*evl_cb_t)(uint8_t index);
 
 /*---------------------------------------------------------------------------*/
 /* Services                                                                  */
@@ -55,7 +55,7 @@ typedef struct
 
     /* Allocate a callback handle. */
     evl_cb_handle_t (*cb_alloc)(evl_cb_t evl_cb,
-                                uint32_t index);
+                                uint8_t index);
 
     /* Schedule a call to the callback function. */
     void (*schedule)(evl_cb_handle_t cb_handle);

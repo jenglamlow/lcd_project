@@ -54,8 +54,6 @@ typedef struct
 
     void (*stop)(void);
     
-    void (*run)(void);
-
 } cmd_parser_services_t;
 /*-----------------------------------------------------------------------------
  *  Initialisation
