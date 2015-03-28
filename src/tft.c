@@ -276,7 +276,7 @@ static void tft_clear_screen(void)
 /**
  * @brief  TFT initialization (Hardware)
  */
-static void tft_open(void)
+static void tft_start(void)
 {
     /* Initialize Hardware I/O for TFT */
     hw_init();
@@ -919,7 +919,7 @@ void tft_init(tft_services_t *tft_services,
               spi_services_t *spi_services)
 {
     tft_services->clear_screen = tft_clear_screen;
-    tft_services->open = tft_open;
+    tft_services->start = tft_start;
     tft_services->fill_area = tft_fill_area;
     tft_services->fill_rectangle = tft_fill_rectangle;
     tft_services->fill_circle = tft_fill_circle;

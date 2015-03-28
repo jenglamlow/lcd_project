@@ -22,6 +22,8 @@
  *  Includes
  *-----------------------------------------------------------------------------*/
 /* Third party libraries include */
+#include "uart.h"
+#include "tft.h"
 
 /* Local includes */
 
@@ -48,12 +50,20 @@ typedef struct
     
     bool (*process)(uint8_t byte);
 
+    void (*start)(void);
+
+    void (*stop)(void);
+    
+    void (*run)(void);
+
 } cmd_parser_services_t;
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
 void cmd_parser_init(cmd_parser_services_t*   cmd_parser_services,
+                     uart_services_t*         uart_services,
                      tft_services_t*          tft_services);
+
 #endif
 

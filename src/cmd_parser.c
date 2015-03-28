@@ -20,7 +20,6 @@
  *  Include
  *-----------------------------------------------------------------------------*/
 /* Third party libraries include */
-#include "tft.h"
 
 /* Local includes */
 #include "lib.h"
@@ -177,6 +176,7 @@ static const cmd_invoke_action_t cmd_invoke[] =
 /* Command parser service component */
 static cmd_parser_services_t    *cmd_parser;
 static tft_services_t           *tft;
+static uart_services_t          *uart;
 
 /* Command State */
 static cmd_info_t cmd_info;
@@ -479,7 +479,7 @@ cmd_t cmd_parser_get_command()
     return cmd_info.cmd.name;
 }
 
-bool cmd_parser_parse(uint8_t byte)
+static bool cmd_parser_parse(uint8_t byte)
 {
     bool is_found;
     uint8_t state = (uint8_t)get_state();
@@ -496,7 +496,7 @@ bool cmd_parser_parse(uint8_t byte)
     return is_found; 
 }
 
-bool cmd_parser_process(uint8_t byte)
+static bool cmd_parser_process(uint8_t byte)
 {
     bool is_done = false;
 
@@ -516,6 +516,29 @@ bool cmd_parser_process(uint8_t byte)
     return is_done;
 }
 
+static void cmd_parser_run(void)
+{
+    uint8_t read_byte;
+
+    while (uart->data_available(UART_CMD))
+    {
+        uart->read(UART_CMD, &read_byte, 1);
+
+        cmd_parser_process(read_byte);
+    }
+}
+
+static void cmd_parser_start(void)
+{
+    /* Start UART Service */
+    uart->open(UART_CMD);
+}
+
+static void cmd_parser_stop(void)
+{
+    /* Close UART Service */
+    uart->close(UART_CMD);
+}
 
 /*-----------------------------------------------------------------------------
  *  Event call-backs
@@ -530,12 +553,17 @@ bool cmd_parser_process(uint8_t byte)
  *-----------------------------------------------------------------------------*/
 
 void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
+                     uart_services_t*       uart_services,
                      tft_services_t*        tft_services)
 {
     tft = tft_services;
+    uart = uart_services;
 
     cmd_parser_services->parse = cmd_parser_parse;
     cmd_parser_services->process = cmd_parser_process;
+    cmd_parser_services->start = cmd_parser_start;
+    cmd_parser_services->stop = cmd_parser_stop;
+    cmd_parser_services->run = cmd_parser_run;
 
     /* Command Info Initialisation */
     cmd_info.message_found = false;
@@ -544,6 +572,4 @@ void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
 
     cmd_info.cmd.name = MAX_CMD;
     cmd_info.cmd.size = 0;
-
-    
 }

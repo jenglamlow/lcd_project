@@ -25,9 +25,6 @@
 #include "inc/hw_nvic.h"
 #include "inc/hw_types.h"
 
-#include "uart.h"
-#include "utilities.h"
-
 //*****************************************************************************
 //
 // Forward declaration of the default fault handlers.

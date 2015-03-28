@@ -124,7 +124,8 @@ void __error__(char *pcFilename, unsigned long ulLine)
  */
 static void peripheral_init(void)
 {
-    tft.open();
+    tft.start();
+    cmd_parser.start();
 }
 /**
  * @brief  Component services initialisation
@@ -135,7 +136,7 @@ static void service_init(void)
     spi_init(&spi);
     tft_init(&tft, &spi);
     uart_init(&uart);
-    cmd_parser_init(&cmd_parser, &tft);
+    cmd_parser_init(&cmd_parser, &uart, &tft);
 }
 
 /**
@@ -231,7 +232,6 @@ void main_nop(void)
  *-----------------------------------------------------------------------------*/
 int main(void)
 {
-    uint8_t read_byte;
     uint8_t write_data[] = "12345";
 
     main_info_init(&main_info);
@@ -239,22 +239,13 @@ int main(void)
     cpu_clock_init();
     peripheral_init();
 
-    uart.open(UART_CMD);
-    
     tft.test(); 
 
     while(1)
     {
         /* tft.running_animation(); */
 
-        while (uart.data_available(UART_CMD))
-        {
-            uart.read(UART_CMD, &read_byte, 1);
-
-            cmd_parser.process(read_byte);
-            main_nop();
-            /* uart.write(UART_CMD, &read_byte, 1); */
-        }
+        cmd_parser.run();
         /* delay_ms(1000); */
         /* uart.write(UART_CMD, &write_data[0], sizeof(write_data)); */
     }
