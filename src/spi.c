@@ -89,6 +89,13 @@ static const uint32_t ssi_gpio_pin_map[] =
     GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3
 };
 
+/* SSI Interrupt Map */
+static const uint32_t ssi_int_map[] = 
+{
+    INT_SSI0,
+    INT_SSI1,
+};
+
 /*-----------------------------------------------------------------------------
  *  Helper Functions
  *-----------------------------------------------------------------------------*/
@@ -122,7 +129,7 @@ static void dma_init()
  *  IRQ Handler
  *-----------------------------------------------------------------------------*/
 
-static void ssi_irq_handler(void)
+void SSI0IntHandler(void)
 {
 
 }
@@ -139,12 +146,13 @@ static void spi_open(spi_instance_t spi_instance)
 {
     /* SSI module map based on spi instance */
     uint8_t ssi_module = spi_index_map[spi_instance];
+    uint32_t base = ssi_base_map[spi_instance];
 
     /* Initialise SSI peripheral */
     ROM_SysCtlPeripheralEnable(ssi_peripheral_map[ssi_module]);
 
     /* Disable SSI module */ 
-    ROM_SSIDisable(ssi_base_map[ssi_module]);
+    ROM_SSIDisable(base);
     
     /* Enable GPIO port */ 
     ROM_SysCtlPeripheralEnable(ssi_peripheral_gpio_map[ssi_module]);
@@ -160,7 +168,7 @@ static void spi_open(spi_instance_t spi_instance)
                        ssi_gpio_pin_map[ssi_module]);
 
     /* Set Clock Source for SSI */
-    ROM_SSIClockSourceSet(ssi_base_map[ssi_module], SSI_CLOCK_SYSTEM);
+    ROM_SSIClockSourceSet(base, SSI_CLOCK_SYSTEM);
 
     /* 
      * SPI set using SSI
@@ -169,25 +177,24 @@ static void spi_open(spi_instance_t spi_instance)
      * 10 Mhz communication speed
      * 8 bits data 
      */ 
-    ROM_SSIConfigSetExpClk(ssi_base_map[ssi_module], 
+    ROM_SSIConfigSetExpClk(base, 
                            SysCtlClockGet(), 
                            SSI_FRF_MOTO_MODE_0,
                            SSI_MODE_MASTER, 
                            25000000, 
                            8);
 
-    /* Register IRQ Callback */
-    /* SSIIntRegister(ssi_base_map[ssi_module], ssi_irq_handler); */
-
     /* Enable Interrupt for SSI */
-    /* ROM_SSIIntEnable(ssi_base_map[ssi_module], SSI_TXFF | SSI_RXFF); */
+    ROM_SSIIntDisable(base, 0xFFFFFFFF);
+    ROM_SSIIntEnable(base, SSI_TXFF | SSI_RXFF | SSI_RXTO);
+    ROM_IntEnable(ssi_int_map[ssi_module]);
     
     /* Enable SSI module */
-    ROM_SSIEnable(ssi_base_map[ssi_module]);
+    ROM_SSIEnable(base);
 
     /* Clear any residual data */
     unsigned long dummy_read_buffer[8];
-    while(ROM_SSIDataGetNonBlocking(ssi_base_map[ssi_module], 
+    while(ROM_SSIDataGetNonBlocking(base, 
                                     &dummy_read_buffer[0]));
 }
 

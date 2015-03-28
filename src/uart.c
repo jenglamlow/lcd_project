@@ -225,7 +225,7 @@ static void uart_open(uart_instance_t          uart_instance)
                             UART_CONFIG_WLEN_8));
     
     /* Set UART FIFO Level */
-    ROM_UARTFIFOLevelSet(base, UART_FIFO_TX1_8, UART_FIFO_RX1_8);
+    ROM_UARTFIFOLevelSet(base, UART_FIFO_TX7_8, UART_FIFO_RX7_8);
 
     /* UART Interrupt Setting */
     ROM_UARTIntDisable(base, 0xFFFFFFFF);
@@ -233,7 +233,7 @@ static void uart_open(uart_instance_t          uart_instance)
     ROM_IntEnable(uart_int[uart_instance]);
 
     /* Enable FIFO */
-    /* ROM_UARTFIFOEnable(base); */
+    ROM_UARTFIFOEnable(base);
 
     /* Enable UART */
     ROM_UARTEnable(base);

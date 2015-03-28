@@ -25,6 +25,7 @@
 #include "lib.h"
 
 /* Local includes */
+#include "evl.h"
 #include "spi.h"
 #include "tft.h"
 #include "uart.h"
@@ -76,6 +77,7 @@ typedef struct
  *-----------------------------------------------------------------------------*/
 /* Service Initialization */
 static spi_services_t spi;
+static evl_services_t evl;
 static tft_services_t tft;
 static uart_services_t uart;
 static cmd_parser_services_t cmd_parser;
@@ -133,6 +135,7 @@ static void peripheral_init(void)
 static void service_init(void)
 {
     /* Initialize SPI Component */
+    evl_init(&evl);
     spi_init(&spi);
     tft_init(&tft, &spi);
     uart_init(&uart);
@@ -232,7 +235,7 @@ void main_nop(void)
  *-----------------------------------------------------------------------------*/
 int main(void)
 {
-    uint8_t write_data[] = "12345";
+    uint8_t write_data[] = "1";
 
     main_info_init(&main_info);
     service_init();
