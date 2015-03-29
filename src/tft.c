@@ -30,8 +30,8 @@
  *  Configuration
  *-----------------------------------------------------------------------------*/
 /* TFT (ILI9341) size */
-#define TFT_HEIGHT      240
-#define TFT_WIDTH       320
+#define TFT_HEIGHT      320
+#define TFT_WIDTH       240
 
 #define MIN_X           0
 #define MIN_Y           0
@@ -130,6 +130,10 @@
  *-----------------------------------------------------------------------------*/
 
 static spi_services_t   *spi;
+static void spi_cb(void)
+{
+
+}
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -156,7 +160,7 @@ static void hw_init(void)
     CLEAR_RST_PIN;
 
     /* SPI module initialization */
-    spi->open(SPI_TFT);
+    spi->open(SPI_TFT, spi_cb);
 }
 
 /**
@@ -338,14 +342,14 @@ static void tft_start(void)
     send_data(0x86);     
 
     send_command(MADCTL);       /* Memory Access Control */
-    send_data(0x48);            /* Refresh Order - BGR colour filter */
+    send_data(0xe8);            /* Refresh Order - BGR colour filter */
 
     send_command(COLMOD);          /* Pixel Format Set */
     send_data(0x55);               /* 16 bits/pixel */
 
     send_command(ILIFCNM);         /* Frame Rate Control */
     send_data(0x00);               /* Fosc */
-    send_data(0x18);               /* 24 clocks for line period */
+    send_data(0x10);               /* 16 clocks for line period */
 
     send_command(ILIDFC);       /* Display Function Control */
     send_data(0x08);               /* Interval Scan */

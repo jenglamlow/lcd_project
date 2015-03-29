@@ -27,6 +27,7 @@
 
 /* Local includes */
 #include "lib.h"
+#include "evl.h"
 
 /*-----------------------------------------------------------------------------
  *  Constants
@@ -48,6 +49,8 @@ typedef enum
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
 
+typedef void (*spi_tx_cb_t)(void);
+
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
@@ -55,11 +58,15 @@ typedef enum
 /* SPI services function pointer */
 typedef struct
 {
-    void (*open)(spi_instance_t spi_instance);
+    void (*open)(spi_instance_t spi_instance,
+                 spi_tx_cb_t    spi_tx_cb);
 
     void (*close)(spi_instance_t spi_instance);
 
     void (*write)(spi_instance_t spi_instance, uint8_t data);
+    
+    void (*write_non_blocking)(spi_instance_t spi_instance,
+                               uint8_t        data);
 
 } spi_services_t;
 
@@ -67,6 +74,7 @@ typedef struct
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
-void spi_init(spi_services_t *spi_services);
+void spi_init(spi_services_t        *spi_services,
+              evl_services_t        *evl_services);
 
 #endif

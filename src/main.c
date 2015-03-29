@@ -136,7 +136,7 @@ static void service_init(void)
 {
     /* Initialize SPI Component */
     evl_init(&evl);
-    spi_init(&spi);
+    spi_init(&spi, &evl);
     tft_init(&tft, &spi);
     uart_init(&uart, &evl);
     cmd_parser_init(&cmd_parser, &uart, &tft);

@@ -172,7 +172,7 @@ static void uart_rx_evl_cb(uint8_t ix)
 /* IRQ handlers                                                               */
 /*----------------------------------------------------------------------------*/
 
-/* Generic UART RX IRQ handler */
+/* Generic UART IRQ handler */
 static void uart_irq(uart_instance_t uart_instance)
 {
     uint32_t status;
