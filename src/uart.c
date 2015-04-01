@@ -73,7 +73,7 @@ static const uint32_t uart_peripheral[UART_COUNT] =
 /* Private types                                                              */
 /*----------------------------------------------------------------------------*/
 
-/* State per UART device */
+/* Info per UART device */
 typedef struct {
 
     /* Struture encapsulating ring buffer for tx and rx */
@@ -95,7 +95,7 @@ typedef struct {
     /* Client data available callback */
     uart_data_available_cb_t data_available_cb;
 
-} uart_state_t;
+} uart_info_t;
 
 /*----------------------------------------------------------------------------*/
 /* Private data                                                               */
@@ -104,33 +104,33 @@ typedef struct {
 /* Event Loop Component */
 static evl_services_t *evl;
 
-/* Per-UART state */
-static uart_state_t uart_state[UART_COUNT];
+/* Per-UART info */
+static uart_info_t uart_info[UART_COUNT];
 
 /*----------------------------------------------------------------------------*/
 /* Helper functions                                                           */
 /*----------------------------------------------------------------------------*/
 
-static void uart_transmit(uart_state_t* state)
+static void uart_transmit(uart_info_t* info)
 {
-    uint32_t base = uart_base[state->instance];
+    uint32_t base = uart_base[info->instance];
     uint8_t write_byte;
 
     /* Check whether tx buffer contain any data */
-    if (!RingBufEmpty(&state->tx_ringbuf_obj))
+    if (!RingBufEmpty(&info->tx_ringbuf_obj))
     {
         /* Disable UART interrupt */
-        ROM_IntDisable(uart_int[state->instance]);
+        ROM_IntDisable(uart_int[info->instance]);
 
-        while(ROM_UARTSpaceAvail(base) && !RingBufEmpty(&state->tx_ringbuf_obj))
+        while(ROM_UARTSpaceAvail(base) && !RingBufEmpty(&info->tx_ringbuf_obj))
         {
-            RingBufRead(&state->tx_ringbuf_obj, &write_byte, 1);
+            RingBufRead(&info->tx_ringbuf_obj, &write_byte, 1);
 
             ROM_UARTCharPutNonBlocking(base, write_byte);
         }
 
         /* Enable UART interrupt */
-        ROM_IntEnable(uart_int[state->instance]);
+        ROM_IntEnable(uart_int[info->instance]);
     }
 }
 
@@ -138,9 +138,9 @@ static uint32_t uart_data_available(uart_instance_t uart_instance)
 {
     ASSERT(uart_instance < UART_COUNT);
 
-    uart_state_t *state = &uart_state[uart_instance];
+    uart_info_t *info = &uart_info[uart_instance];
 
-    return RingBufUsed(&state->rx_ringbuf_obj);
+    return RingBufUsed(&info->rx_ringbuf_obj);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -150,19 +150,19 @@ static uint32_t uart_data_available(uart_instance_t uart_instance)
 /* Event loop UART receive callback function */
 static void uart_rx_evl_cb(uint8_t ix)
 {
-    uart_state_t *state = &uart_state[ix];
+    uart_info_t *info = &uart_info[ix];
 
-    if (uart_data_available(state->instance))
+    if (uart_data_available(info->instance))
     {
-        state->data_available_cb();
+        info->data_available_cb();
     }
 
     /* Reschedule the uart data available event if still contains data */
-    if (uart_data_available(state->instance))
+    if (uart_data_available(info->instance))
     {
         IntMasterDisable();
 
-        evl->schedule(state->evl_rx_handle);
+        evl->schedule(info->evl_rx_handle);
         
         IntMasterEnable();
     }
@@ -176,7 +176,7 @@ static void uart_rx_evl_cb(uint8_t ix)
 static void uart_irq(uart_instance_t uart_instance)
 {
     uint32_t status;
-    uart_state_t *state = &uart_state[uart_instance];
+    uart_info_t *info = &uart_info[uart_instance];
     uint32_t base = uart_base[uart_instance];
     uint8_t read_byte;
 
@@ -196,15 +196,15 @@ static void uart_irq(uart_instance_t uart_instance)
             read_byte = ROM_UARTCharGetNonBlocking(base);
 
             /* Check if ring buffer is full */
-            if(!RingBufFull(&state->rx_ringbuf_obj))
+            if(!RingBufFull(&info->rx_ringbuf_obj))
             {
                 /* Store read byte in ring buffer */
-                RingBufWrite(&state->rx_ringbuf_obj, &read_byte, 1);
+                RingBufWrite(&info->rx_ringbuf_obj, &read_byte, 1);
             }
         }
 
         /* Schedule Receive Event */
-        evl->schedule(state->evl_rx_handle);
+        evl->schedule(info->evl_rx_handle);
 
     }
 
@@ -212,10 +212,10 @@ static void uart_irq(uart_instance_t uart_instance)
     if (status & UART_INT_TX)
     {
         /* Move as many byte into TX FIFO */
-        uart_transmit(state);
+        uart_transmit(info);
 
         /* Disable transmit interrupt if tx buffer is empty */  
-        if (!RingBufEmpty(&state->tx_ringbuf_obj))
+        if (!RingBufEmpty(&info->tx_ringbuf_obj))
         {
             ROM_UARTIntDisable(base, UART_INT_TX);
         }
@@ -237,14 +237,14 @@ static void uart_open(uart_instance_t          uart_instance,
     ASSERT(uart_instance < UART_COUNT);
     ASSERT(uart_data_available_cb != NULL);
 
-    uart_state_t *state = &uart_state[uart_instance];
+    uart_info_t *info = &uart_info[uart_instance];
     uint32_t base = uart_base[uart_instance];
     
-    /* UART State Initialization */
-    state->instance = uart_instance;
+    /* UART info Initialization */
+    info->instance = uart_instance;
 
     /* Subscribe uart data available callback */
-    state->data_available_cb = uart_data_available_cb;
+    info->data_available_cb = uart_data_available_cb;
 
     /* IO initialisation */
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
@@ -281,7 +281,7 @@ static void uart_close(uart_instance_t uart_instance)
 {
     ASSERT(uart_instance < UART_COUNT);
 
-    uart_state_t *state = &uart_state[uart_instance];
+    uart_info_t *info = &uart_info[uart_instance];
     uint32_t base = uart_base[uart_instance];
 
     /* Disable FIFO */
@@ -294,8 +294,8 @@ static void uart_close(uart_instance_t uart_instance)
     ROM_UARTDisable(base);
 
     /* Empty ring buffer */
-    RingBufFlush(&state->rx_ringbuf_obj);
-    RingBufFlush(&state->tx_ringbuf_obj);
+    RingBufFlush(&info->rx_ringbuf_obj);
+    RingBufFlush(&info->tx_ringbuf_obj);
 }
 
 static void uart_read(uart_instance_t   uart_instance,
@@ -308,13 +308,13 @@ static void uart_read(uart_instance_t   uart_instance,
 
     uint32_t read_count = 0u;
 
-    uart_state_t *state = &uart_state[uart_instance];
+    uart_info_t *info = &uart_info[uart_instance];
     uint32_t base = uart_base[uart_instance];
 
     /* Disable RX interrupt */
     ROM_UARTIntDisable(base, UART_INT_RX);
     
-    RingBufRead(&state->rx_ringbuf_obj, buffer, buffer_size);
+    RingBufRead(&info->rx_ringbuf_obj, buffer, buffer_size);
 
     /* Enable the RX interrupt */
     ROM_UARTIntEnable(base, UART_INT_RX);
@@ -330,14 +330,14 @@ static void uart_write(uart_instance_t  uart_instance,
 
     uint32_t write_count = 0u;
 
-    uart_state_t *state = &uart_state[uart_instance];
+    uart_info_t *info = &uart_info[uart_instance];
     uint32_t base = uart_base[uart_instance];
 
     /* Disable the transmit interrupt */
     ROM_UARTIntDisable(base, UART_INT_TX);
 
-    RingBufWrite(&state->tx_ringbuf_obj, buffer, buffer_size);
-    uart_transmit(state);
+    RingBufWrite(&info->tx_ringbuf_obj, buffer, buffer_size);
+    uart_transmit(info);
 
     /* Enable the transmit interrupt */
     ROM_UARTIntEnable(base, UART_INT_TX);
@@ -380,17 +380,17 @@ void uart_init(uart_services_t          *uart_services,
 
     for (i = 0; i < UART_COUNT; i++)
     {
-        RingBufInit(&uart_state[i].tx_ringbuf_obj, 
-                    uart_state[i].tx_buffer,
-                    sizeof(uart_state[i].tx_buffer));
+        RingBufInit(&uart_info[i].tx_ringbuf_obj,
+                    &uart_info[i].tx_buffer[0],
+                    sizeof(uart_info[i].tx_buffer));
 
-        RingBufInit(&uart_state[i].rx_ringbuf_obj, 
-                    uart_state[i].rx_buffer,
-                    sizeof(uart_state[i].rx_buffer));
+        RingBufInit(&uart_info[i].rx_ringbuf_obj,
+                    &uart_info[i].rx_buffer[0],
+                    sizeof(uart_info[i].rx_buffer));
 
         if (!is_alloc)
         {
-            uart_state[i].evl_rx_handle = evl->cb_alloc(uart_rx_evl_cb, i);
+            uart_info[i].evl_rx_handle = evl->cb_alloc(uart_rx_evl_cb, i);
         }
     }
 
