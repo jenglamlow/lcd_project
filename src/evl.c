@@ -226,8 +226,6 @@ static void evl_schedule(evl_cb_handle_t evl_cb_handle)
 
     evt_t* evt;
 
-    ASSERT(evt != NULL);
-
     if (evl_cb_handle < MAX_EVENT)
     {
         /* Get event object using callback handle */
@@ -250,8 +248,6 @@ static void evl_cancel(evl_cb_handle_t evl_cb_handle)
     ASSERT(evl_cb_handle < MAX_EVENT);
 
     evt_t* evt;
-
-    ASSERT(evt != NULL);
 
     evt = &(event_array[evl_cb_handle]);
 

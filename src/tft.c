@@ -267,7 +267,9 @@ static void tft_clear_screen(void)
     
     uint32_t total_pixel = (TFT_WIDTH * TFT_HEIGHT) / 2;
 
-    for (uint16_t i=0; i<total_pixel; i++)
+    uint16_t i;
+
+    for (i=0; i<total_pixel; i++)
     {
         spi->write(SPI_TFT,0);
         spi->write(SPI_TFT,0);
@@ -696,7 +698,7 @@ static void tft_draw_circle(uint16_t xc, uint16_t yc,
 static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y, 
                           uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
 {
-    uint8_t f;
+    uint8_t i, f;
 
     if((ascii >= 32) && (ascii <= 127))
     {
@@ -706,7 +708,7 @@ static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
     {
         ascii = '?'-32;
     }
-    for (int i =0; i < TFT_FONT_X; i++ ) 
+    for (i =0; i < TFT_FONT_X; i++ )
     {
         uint8_t temp = font_map[ascii-0x20][i];
         for(f=0; f < 8; f++)
