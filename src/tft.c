@@ -25,6 +25,7 @@
 /* Local includes */
 #include "tft.h"
 #include "fonts.h"
+#include "ringbuf.h"
 
 /*-----------------------------------------------------------------------------
  *  Configuration
@@ -125,14 +126,59 @@
  *  Private Types
  *-----------------------------------------------------------------------------*/
 
+typedef enum
+{
+    STATE_DONE = 0,
+    STATE_CMD,
+    STATE_DATA
+} tft_send_info_t;
+
+typedef struct
+{
+    uint8_t cmd;
+    uint32_t size;
+} tft_cmd_info_t;
+
+typedef void (*tft_action_t)(void);
+
+/* Info per TFT device */
+typedef struct
+{
+    tRingBufObject cmd_ringbuf_obj;
+    tRingBufObject data_ringbuf_obj;
+
+    /* Internal State of TFT */
+    tft_state_t         state;
+    tft_send_info_t     send_info;
+
+    tft_cmd_info_t      tft_cmd_info[20];
+
+} tft_info_t;
+
+
 /*-----------------------------------------------------------------------------
  *  Private Data
  *-----------------------------------------------------------------------------*/
 
 static spi_services_t   *spi;
-static void spi_cb(void)
-{
+static tft_info_t       tft_info;
 
+
+static void tft_state_ready();
+static void tft_state_cmd();
+static void tft_state_data();
+
+
+static const tft_action_t tft_action[] =
+{
+    tft_state_ready,
+    tft_state_cmd,
+    tft_state_data
+};
+
+static void spi_tx_cb(void)
+{
+    tft_action[tft_info.send_info]();
 }
 
 /*-----------------------------------------------------------------------------
@@ -160,7 +206,7 @@ static void hw_init(void)
     CLEAR_RST_PIN;
 
     /* SPI module initialization */
-    spi->open(SPI_TFT, spi_cb);
+    spi->open(SPI_TFT, spi_tx_cb);
 }
 
 /**
@@ -170,9 +216,30 @@ static void hw_init(void)
  */
 static void send_command(uint8_t cmd)
 {
+    #if 0
     CLEAR_DC_PIN;
 
     spi->write(SPI_TFT, cmd);
+    #else
+
+    /* TODO: Check whether ring_buffer for CMD & Data is full */
+
+    /* Check if TFT is not busy */
+    if (tft_info.state == TFT_READY)
+    {
+        CLEAR_DC_PIN;
+
+        tft_info.send_info = STATE_CMD;
+
+        spi->write_non_blocking(SPI_TFT, &cmd, 1);
+    }
+    /* Buffer the command if TFT is busy */
+    else
+    {
+
+    }
+
+    #endif
 }
 
 /**
@@ -182,9 +249,13 @@ static void send_command(uint8_t cmd)
  */
 static void send_data(uint8_t data)
 {
+    #if 0
     SET_DC_PIN;
 
     spi->write(SPI_TFT, data);
+    #else
+
+    #endif
 }
 
 /**
@@ -268,7 +339,6 @@ static void tft_clear_screen(void)
     uint32_t total_pixel = (TFT_WIDTH * TFT_HEIGHT) / 2;
 
     uint16_t i;
-
     for (i=0; i<total_pixel; i++)
     {
         spi->write(SPI_TFT,0);
@@ -945,6 +1015,13 @@ void tft_init(tft_services_t *tft_services,
 
     /* SPI Component Services */
     spi = spi_services;
-}
 
+    /* Initialize TFT info */
+    tft_info.state = TFT_READY;
+    tft_info.send_info = STATE_DONE;
+
+    RingBufInit(&tft_info.cmd_ringbuf_obj,
+                &tft_cmd_info[0],
+                sizeof(cmd_info));
+}
 
