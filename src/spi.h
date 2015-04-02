@@ -45,6 +45,12 @@ typedef enum
     SPI_COUNT
 } spi_instance_t;
 
+typedef enum
+{
+    SPI_READY = 0,
+    SPI_BUSY
+} spi_state_t;
+
 /*-----------------------------------------------------------------------------
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
@@ -58,6 +64,8 @@ typedef void (*spi_tx_cb_t)(void);
 /* SPI services function pointer */
 typedef struct
 {
+	spi_state_t (*get_state)(spi_instance_t spi_instance);
+
     void (*open)(spi_instance_t spi_instance,
                  spi_tx_cb_t    spi_tx_cb);
 
@@ -66,7 +74,8 @@ typedef struct
     void (*write)(spi_instance_t spi_instance, uint8_t data);
     
     void (*write_non_blocking)(spi_instance_t spi_instance,
-                               uint8_t        data);
+                               uint8_t        *data,
+                               uint32_t       data_size);
 
 } spi_services_t;
 

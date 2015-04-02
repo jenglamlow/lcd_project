@@ -21,6 +21,7 @@
  *-----------------------------------------------------------------------------*/
 /* Local Includes */
 #include "spi.h"
+#include "ringbuf.h"
 
 /* Third party libraries include */
 #include "driverlib/ssi.h"
@@ -31,34 +32,43 @@
  *  Configurations
  *-----------------------------------------------------------------------------*/
 
+ #define RX_BUFFER_SIZE 1024
+ #define TX_BUFFER_SIZE 1024
+
 /*-----------------------------------------------------------------------------
  *  Private Types
  *-----------------------------------------------------------------------------*/
 
-/* State per SSI device */
-typedef struct {
+/* Info per SSI device */
+typedef struct
+{
+    /* Internal State of SSI */
+    spi_state_t state;
 
-    /* Store UART Instance */
+    /* Store SSI Instance */
     spi_instance_t instance;
 
     /* Receive Event Handle */
     evl_cb_handle_t evl_tx_handle;
 
+    /* Ring Buffer for TX & RX */
+    tRingBufObject tx_ringbuf_obj;
+    tRingBufObject rx_ringbuf_obj;
+
+    /* Receive Buffer Array */
+    uint8_t rx_buffer[RX_BUFFER_SIZE];
+
+    /* Transmit Buffer Array */
+    uint8_t tx_buffer[TX_BUFFER_SIZE];
+
     /* Client data available callback */
     spi_tx_cb_t tx_cb;
 
-} spi_state_t;
+} spi_info_t;
 
 /*-----------------------------------------------------------------------------
  *  Private Data
  *-----------------------------------------------------------------------------*/
-
-/* SPI instance index mapping */
-static const uint8_t spi_index[SPI_COUNT] = 
-{
-   0,    /* SPI_TFT - SSI0 */
-   1     /* SPI_SD_CARD - SSI1 */
-};
 
 /* SSI Base map */
 static const uint32_t ssi_base[] = 
@@ -87,6 +97,13 @@ static const uint32_t ssi_gpio_config[][4] =
     {GPIO_PD0_SSI3CLK, GPIO_PD1_SSI3FSS, GPIO_PD2_SSI3RX, GPIO_PD3_SSI3TX}
 };
 
+/* SSI Interrupt */
+static const uint32_t ssi_int[] =
+{
+    INT_SSI0,
+    INT_SSI1,
+};
+
 /* SSI GPIO Port Map */
 static const uint32_t ssi_gpio_port[] = 
 {
@@ -102,20 +119,14 @@ static const uint32_t ssi_gpio_pin[] =
     GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3
 };
 
-/* SSI Interrupt Map */
-static const uint32_t ssi_int[] = 
-{
-    INT_SSI0,
-    INT_SSI1,
-};
-
 static evl_services_t *evl;
 
-static spi_state_t spi_state[SPI_COUNT];
+static spi_info_t spi_info[SPI_COUNT];
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
  *-----------------------------------------------------------------------------*/
+
 
 /*-----------------------------------------------------------------------------
  *  Event call-backs
@@ -123,7 +134,10 @@ static spi_state_t spi_state[SPI_COUNT];
 
 static void spi_tx_evl_cb(uint8_t ix)
 {
+    spi_info_t *info = &spi_info[ix];
 
+    /* Callback to notify upper layer sending data completed */
+    info->tx_cb();
 }
 
 /*-----------------------------------------------------------------------------
@@ -134,19 +148,70 @@ static void spi_tx_evl_cb(uint8_t ix)
 static void spi_irq(spi_instance_t spi_instance)
 {
     uint32_t status;
-    spi_state_t *state = &spi_state[spi_instance];
-    uint32_t base = ssi_base[spi_instance];
-    uint8_t read_byte;
 
-    /* Get UART Status Flag */
-    status = ROM_UARTIntStatus(ssi_base[spi_instance], true);
+    spi_info_t *info = &spi_info[spi_instance];
+    uint32_t base = ssi_base[spi_instance];
+    unsigned long read_byte;
+    uint8_t write_byte;
+    uint8_t count;
+
+    /* Get spi Status Flag */
+    status = ROM_SSIIntStatus(ssi_base[spi_instance], true);
 
     /* Clear Interrupt source */
-    ROM_UARTIntClear(ssi_base[spi_instance], status);
+    ROM_SSIIntClear(ssi_base[spi_instance], status);
 
     if (status & (SSI_RXFF | SSI_RXTO))
     {
+        while (1)
+        {
+            /* TODO: current read_byte is dummy read */
+            if (ROM_SSIDataGetNonBlocking(base, &read_byte) == 0)
+            {
+                /* Break loop if FIFO is empty */
+                break;
+            }
+        }
 
+        /* If nothing to transmit */
+        if (RingBufEmpty(&info->tx_ringbuf_obj))
+        {
+            /* TODO: expected read scenario */
+            /* If transmit completed, disable RX interrupt */
+            SSIIntDisable(base, SSI_RXFF | SSI_RXTO);
+
+            info->state = SPI_READY;
+
+            /* Schedule callback */
+            evl->schedule(info->evl_tx_handle);
+        }
+
+    }
+
+    if(status & SSI_TXFF)
+    {
+        for (count = 0; count < 4; count++)
+        {
+            /* Check if there is data to be transmitted */
+            if (!RingBufEmpty(&info->tx_ringbuf_obj))
+            {
+                RingBufRead(&info->tx_ringbuf_obj, &write_byte, 1);
+                if (SSIDataPutNonBlocking(base, write_byte) == 0)
+                {
+                    /* Break loop if FIFO is full */
+                    break;
+                }
+            }
+            /* TODO: tranmsit dummy data for expected read */
+            /* No more data to be transmitted */
+            else
+            {
+                /* Disable Transmit interrupt */
+                ROM_SSIIntDisable(base, SSI_TXFF);
+
+                break;
+            }
+        }
     }
 }
 
@@ -166,37 +231,38 @@ void SSI0IntHandler(void)
 static void spi_open(spi_instance_t spi_instance,
                      spi_tx_cb_t    spi_tx_cb)
 {
-    /* SSI module map based on spi instance */
-    uint8_t ssi_module = spi_index[spi_instance];
+    ASSERT(spi_instance < SPI_COUNT);
+    ASSERT(spi_tx_cb != NULL);
+
     uint32_t base = ssi_base[spi_instance];
     
-    /* SSI State Initialise */
-    spi_state_t *state = &spi_state[spi_instance];
+    /* SSI Info Initialise */
+    spi_info_t *info = &spi_info[spi_instance];
 
-    /* UART State Initialization */
-    state->instance = spi_instance;
+    /* spi Info Initialization */
+    info->instance = spi_instance;
 
     /* Subscribe data available callback */
-    state->tx_cb = spi_tx_cb;
+    info->tx_cb = spi_tx_cb;
 
     /* Initialise SSI peripheral */
-    ROM_SysCtlPeripheralEnable(ssi_peripheral[ssi_module]);
+    ROM_SysCtlPeripheralEnable(ssi_peripheral[spi_instance]);
 
     /* Disable SSI module */ 
     ROM_SSIDisable(base);
     
     /* Enable GPIO port */ 
-    ROM_SysCtlPeripheralEnable(ssi_peripheral_gpio[ssi_module]);
+    ROM_SysCtlPeripheralEnable(ssi_peripheral_gpio[spi_instance]);
 
     /* Configure PORT pin muxing as SSI peripheral function */  
-    ROM_GPIOPinConfigure(ssi_gpio_config[ssi_module][0]);
-    ROM_GPIOPinConfigure(ssi_gpio_config[ssi_module][1]);
-    ROM_GPIOPinConfigure(ssi_gpio_config[ssi_module][2]);
-    ROM_GPIOPinConfigure(ssi_gpio_config[ssi_module][3]);
+    ROM_GPIOPinConfigure(ssi_gpio_config[spi_instance][0]);
+    ROM_GPIOPinConfigure(ssi_gpio_config[spi_instance][1]);
+    ROM_GPIOPinConfigure(ssi_gpio_config[spi_instance][2]);
+    ROM_GPIOPinConfigure(ssi_gpio_config[spi_instance][3]);
 
     /* Configure the GPIO settings for SSI pins */
-    ROM_GPIOPinTypeSSI(ssi_gpio_port[ssi_module], 
-                       ssi_gpio_pin[ssi_module]);
+    ROM_GPIOPinTypeSSI(ssi_gpio_port[spi_instance],
+                       ssi_gpio_pin[spi_instance]);
 
     /* Set Clock Source for SSI */
     ROM_SSIClockSourceSet(base, SSI_CLOCK_SYSTEM);
@@ -216,9 +282,9 @@ static void spi_open(spi_instance_t spi_instance,
                            8);
 
     /* Enable Interrupt for SSI */
-    /* ROM_SSIIntDisable(base, 0xFFFFFFFF); */
-    /* ROM_SSIIntEnable(base, SSI_TXFF | SSI_RXFF | SSI_RXTO); */
-    /* ROM_IntEnable(ssi_int_map[ssi_module]); */
+    ROM_SSIIntDisable(base, 0xFFFFFFFF);
+
+    ROM_IntEnable(ssi_int[spi_instance]);
     
     /* Clear any residual data */
     unsigned long dummy_read_buffer[8];
@@ -227,44 +293,69 @@ static void spi_open(spi_instance_t spi_instance,
 
     /* Enable SSI module */
     ROM_SSIEnable(base);
-
 }
 
 
 /**
-* @brief  Close SPI module
+* @brief  Get SPI current state
 */
+static spi_state_t spi_get_state(spi_instance_t spi_instance)
+{
+    ASSERT(spi_instance < SPI_COUNT);
+
+    return spi_info[spi_instance].state;
+}
+
+
 static void spi_close(spi_instance_t spi_instance)
 {
-    /* SSI module map based on spi instance */
-    uint8_t ssi_module = spi_index[spi_instance];
+    ASSERT(spi_instance < SPI_COUNT);
 
-    ROM_SSIIntDisable(ssi_base[ssi_module], SSI_TXFF);
-    ROM_SSIDisable(ssi_base[ssi_module]);
-    SSIIntUnregister(ssi_base[ssi_module]);
+    /* SSI module map based on spi instance */
+    ROM_SSIIntDisable(ssi_base[spi_instance], SSI_TXFF);
+    ROM_SSIDisable(ssi_base[spi_instance]);
 }
 
 static void spi_write(spi_instance_t spi_instance,
                       uint8_t        data)
 {
-    /* SSI module map based on spi instance */
-    uint8_t ssi_module = spi_index[spi_instance];
+    ASSERT(spi_instance < SPI_COUNT);
+
+    uint32_t base = ssi_base[spi_instance];
+
+    while(SSIBusy(base));
+    while(spi_info[spi_instance].state != SPI_READY);
 
     /* Write Data to SSI */
-    ROM_SSIDataPut(ssi_base[ssi_module], (uint8_t)data);
+    ROM_SSIDataPut(base, (uint8_t)data);
 
     /* Get Data from SSI */
     unsigned long rx_data;
-    ROM_SSIDataGet(ssi_base[ssi_module], &rx_data);
+    ROM_SSIDataGet(base, &rx_data);
 }
 
 
 static void spi_write_non_blocking(spi_instance_t spi_instance,
-                                   uint8_t        data)
+                                   uint8_t        *data,
+                                   uint32_t       data_size)
 {
+    ASSERT(spi_instance < SPI_COUNT);
+    ASSERT(data_size > 0);
+    ASSERT(data != NULL);
 
+    spi_info_t *info = &spi_info[spi_instance];
+    uint32_t base = ssi_base[spi_instance];
+
+    if (data_size > 0)
+    {
+        info->state = SPI_BUSY;
+
+        RingBufWrite(&info->tx_ringbuf_obj, data, data_size);
+
+        /* Enable SSI interrupt */
+        ROM_SSIIntEnable(base, SSI_TXFF | SSI_RXFF | SSI_RXTO);
+    }
 }
-
 
 /*-----------------------------------------------------------------------------
  *  Initialisation
@@ -282,23 +373,32 @@ void spi_init(spi_services_t        *spi_services,
 
     evl = evl_services;
 
+    spi_services->get_state = spi_get_state;
     spi_services->open = spi_open;
     spi_services->close = spi_close;
     spi_services->write = spi_write;
     spi_services->write_non_blocking = spi_write_non_blocking;
 
-
     uint8_t i;
     
     for (i = 0; i < SPI_COUNT; i++)
     {
+        spi_info[i].state = SPI_READY;
+
+        RingBufInit(&spi_info[i].tx_ringbuf_obj,
+                    &spi_info[i].tx_buffer[0],
+                    sizeof(spi_info[i].tx_buffer));
+
+        RingBufInit(&spi_info[i].rx_ringbuf_obj,
+                    &spi_info[i].rx_buffer[0],
+                    sizeof(spi_info[i].rx_buffer));
+
         /* Allocate callback for event loop */
         if (!is_alloc)
         {
-            spi_state[i].evl_tx_handle = evl->cb_alloc(spi_tx_evl_cb, i);
+            spi_info[i].evl_tx_handle = evl->cb_alloc(spi_tx_evl_cb, i);
         }
     }
 
     is_alloc = true;
 }
-
