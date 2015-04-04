@@ -30,21 +30,26 @@
 /*-----------------------------------------------------------------------------
  *  Configuration
  *-----------------------------------------------------------------------------*/
-/* TFT (ILI9341) size */
-#define TFT_HEIGHT      (320)
-#define TFT_WIDTH       (240)
+#define BLOCKING            1
 
-#define MIN_X           (0)
-#define MIN_Y           (0)
-#define MAX_X           (239)
-#define MAX_Y           (319)
+/* TFT (ILI9341) size */
+#define TFT_HEIGHT          (320)
+#define TFT_WIDTH           (240)
+
+#define MIN_X               (0)
+#define MIN_Y               (0)
+#define MAX_X               (239)
+#define MAX_Y               (319)
 
 /* pin mapping for D/C tft */ 
 #define DC_PIN_BASE         GPIO_PORTE_BASE
 #define DC_PIN              GPIO_PIN_2
 
 /* Command info FIFO queue size */
-#define CMD_QUEUE_SIZE   (20)
+#define CMD_QUEUE_SIZE      (64)
+
+/* Command info TFT data size */
+#define CMD_DATA_SIZE       (4096)
 
 /* Set D/C pin to high */
 #define SET_DC_PIN          SET_BITS(DC_PIN_BASE, DC_PIN)
@@ -131,18 +136,17 @@
 
 typedef enum
 {
-    STATE_DONE = 0,
-    STATE_CMD,
-    STATE_DATA
-} tft_send_info_t;
+    STATE_CMD = 0,
+    STATE_DATA,
+} tft_send_state_t;
+
+typedef void (*tft_action_t)(void);
 
 typedef struct
 {
     uint8_t cmd;
     uint32_t size;
 } tft_cmd_info_t;
-
-typedef void (*tft_action_t)(void);
 
 typedef struct
 {
@@ -159,11 +163,16 @@ typedef struct
 
     /* Internal State of TFT */
     tft_state_t         state;
-    tft_send_info_t     send_info;
+    tft_send_state_t    send_state;
+
+    uint8_t             data[CMD_DATA_SIZE];
+
+    tft_cmd_info_t      last_cmd;
+
+    /* Callback when TFT is DONE */
+    tft_done_cb_t       done_cb;
 
 } tft_info_t;
-
-
 
 /*-----------------------------------------------------------------------------
  *  Private Data
@@ -173,31 +182,7 @@ static spi_services_t   *spi;
 static tft_info_t       tft_info;
 static cmd_queue_t      cmd_queue;
 
-static void tft_state_ready()
-{
-
-}
-static void tft_state_cmd()
-{
-
-}
-static void tft_state_data()
-{
-
-}
-
-
-static const tft_action_t tft_action[] =
-{
-    tft_state_ready,
-    tft_state_cmd,
-    tft_state_data
-};
-
-static void spi_tx_cb(void)
-{
-    tft_action[tft_info.send_info]();
-}
+static void spi_tx_cb(void);
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -236,7 +221,7 @@ static bool cmd_queue_put(tft_cmd_info_t *cmd_info)
         cmd_queue.wx = ((wx + 1) % CMD_QUEUE_SIZE);
     }
 
-    return is_full;
+    return !is_full;
 }
 
 static bool cmd_queue_read(tft_cmd_info_t *cmd_info)
@@ -256,7 +241,7 @@ static bool cmd_queue_read(tft_cmd_info_t *cmd_info)
         cmd_queue.rx = ((rx + 1) % CMD_QUEUE_SIZE);
     }
 
-    return is_empty;
+    return !is_empty;
 }
 
 /**
@@ -307,25 +292,60 @@ static void send_data(uint8_t data)
     spi->write(SPI_TFT, data);
 }
 
+static void send_command_struct(tft_cmd_info_t* cmd_info)
+{
+    tft_info.last_cmd.cmd = cmd_info->cmd;
+    tft_info.last_cmd.size = cmd_info->size;
+
+    /* Change to STATE_DATA if contain data */
+    if (cmd_info->size > 0)
+    {
+        tft_info.send_state = STATE_DATA;
+    }
+    /* Command only */
+    else
+    {
+        tft_info.send_state = STATE_CMD;
+    }
+
+    spi->write_non_blocking(SPI_TFT, &cmd_info->cmd, 1);
+}
+
 static void send_raw(uint8_t    cmd,
                      uint8_t*   data,
                      uint32_t   size)
 {
-    /* Check if TFT is not busy */
+
+    /* Buffer the raw command */
+    tft_cmd_info_t cmd_info;
+
+    cmd_info.cmd = cmd;
+    cmd_info.size = size;
+
+    /* Queue the command data */
+    bool result;
+    result = cmd_queue_put(&cmd_info);
+    ASSERT(result != false);
+
+    /* Buffer the data byte if contain data */
+    if (size > 0)
+    {
+        RingBufWrite(&tft_info.data_ringbuf_obj, data, size);
+    }
+
+    /* Check if TFT is ready */
     if (tft_info.state == TFT_READY)
     {
+        tft_info.state = TFT_BUSY;
+
+        /* Send data if TFT is ready */
         CLEAR_DC_PIN;
 
-        tft_info.send_info = STATE_CMD;
+        result = cmd_queue_read(&cmd_info);
+        ASSERT(result != false);
 
-        spi->write_non_blocking(SPI_TFT, &cmd, 1);
+        send_command_struct(&cmd_info);
     }
-    /* Buffer the command if TFT is busy */
-    else
-    {
-
-    }
-
 }
 
 /**
@@ -392,10 +412,89 @@ static void set_xy(uint16_t x, uint16_t y)
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
 
+static void tft_state_cmd(void)
+{
+    tft_cmd_info_t cmd_info;
+
+    ASSERT(tft_info.send_state == STATE_CMD);
+    ASSERT(tft_info.state == TFT_BUSY);
+
+    CLEAR_DC_PIN;
+
+    bool result = cmd_queue_read(&cmd_info);
+
+    /* Contain queue */
+    if (result)
+    {
+        send_command_struct(&cmd_info);
+    }
+    else
+    {
+        /* No more data */
+        tft_info.state = TFT_READY;
+
+        /* Callback to when TFT is READY */
+        tft_info.done_cb();
+    }
+}
+
+static void tft_state_data(void)
+{
+    uint32_t size = tft_info.last_cmd.size;
+    uint32_t read_size;
+    uint8_t data[64];
+
+    ASSERT(tft_info.send_state == STATE_DATA);
+    ASSERT(tft_info.state == TFT_BUSY);
+
+    SET_DC_PIN;
+
+    while (size)
+    {
+        if (size <= 64)
+        {
+            read_size = size;
+            RingBufRead(&tft_info.data_ringbuf_obj, &data[0], read_size);
+        }
+        /* Expected size more than 64 bytes */
+        else
+        {
+            read_size = 64;
+            RingBufRead(&tft_info.data_ringbuf_obj, &data[0], read_size);
+        }
+
+        spi->write_non_blocking(SPI_TFT, &data[0], size);
+        size -= read_size;
+    }
+
+    /* TODO: Handle next state for data */
+    tft_info.send_state = STATE_CMD;
+}
+
+/* Callback from SPI when transmission completed */
+static void spi_tx_cb(void)
+{
+    if (tft_info.send_state == STATE_CMD)
+    {
+        tft_state_cmd();
+    }
+    else
+    {
+        tft_state_data();
+    }
+}
+
 
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
+
+static void tft_register_done_callback(tft_done_cb_t tft_done_cb)
+{
+    ASSERT(tft_done_cb != NULL);
+
+    tft_info.done_cb = tft_done_cb;
+}
 
 /**
 * @brief  Clear TFT screen to all black
@@ -417,7 +516,6 @@ static void tft_clear_screen(void)
         spi->write(SPI_TFT,0);
     }
 }
-
 
 /**
  * @brief  TFT initialization (Hardware)
@@ -680,10 +778,10 @@ static void tft_fill_area(uint16_t x0, uint16_t y0,
     }
 
     /* Constrain number to be within a range */
-    x0 = constrain(x0, MIN_X,MAX_X);
-    x1 = constrain(x1, MIN_X,MAX_X);
-    y0 = constrain(y0, MIN_Y,MAX_Y);
-    y1 = constrain(y1, MIN_Y,MAX_Y);
+    x0 = constrain(x0, MIN_X, MAX_X);
+    x1 = constrain(x1, MIN_X, MAX_X);
+    y0 = constrain(y0, MIN_Y, MAX_Y);
+    y1 = constrain(y1, MIN_Y, MAX_Y);
 
     /* get total area (pixels) */
     xy = (x1 - x0 + 1);
@@ -1082,15 +1180,19 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_number = tft_draw_number;
     tft_services->draw_char_only = tft_draw_char_only;
     tft_services->draw_string_only = tft_draw_string_only;
+    tft_services->register_done_callback = tft_register_done_callback;
 
     /* SPI Component Services */
     spi = spi_services;
 
     /* Initialize TFT info */
     tft_info.state = TFT_READY;
-    tft_info.send_info = STATE_DONE;
+    tft_info.send_state = STATE_CMD;
 
     memset(&cmd_queue.buffer[0], 0, sizeof(&cmd_queue.buffer));
+    RingBufInit(&tft_info.data_ringbuf_obj,
+                &tft_info.data[0],
+                sizeof(tft_info.data));
     cmd_queue.rx = 0;
     cmd_queue.wx = 0;
 }

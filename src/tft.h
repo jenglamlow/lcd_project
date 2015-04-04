@@ -59,11 +59,14 @@ typedef enum
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
 
+typedef void (*tft_done_cb_t)(void);
+
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
 typedef struct
 {
+    void (*register_done_callback)(tft_done_cb_t tft_done_cb);
     void (*start)(void);
     void (*clear_screen)(void);
     void (*fill_area)(uint16_t x0, uint16_t y0, 
