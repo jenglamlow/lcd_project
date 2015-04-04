@@ -39,6 +39,14 @@
  *  Private Types
  *-----------------------------------------------------------------------------*/
 
+/* SPI internal state */
+typedef enum
+{
+    SPI_READY = 0,
+    SPI_BUSY
+} spi_state_t;
+
+
 /* Info per SSI device */
 typedef struct
 {
@@ -119,8 +127,10 @@ static const uint32_t ssi_gpio_pin[] =
     GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3
 };
 
+/* Event Loop Services */
 static evl_services_t *evl;
 
+/* Per-SPI info */
 static spi_info_t spi_info[SPI_COUNT];
 
 /*-----------------------------------------------------------------------------
@@ -132,6 +142,10 @@ static spi_info_t spi_info[SPI_COUNT];
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
 
+/**
+ * SPI Transmint compete callback
+ * @param ix    SPI instance
+ */
 static void spi_tx_evl_cb(uint8_t ix)
 {
     spi_info_t *info = &spi_info[ix];
@@ -144,7 +158,10 @@ static void spi_tx_evl_cb(uint8_t ix)
  *  IRQ Handler
  *-----------------------------------------------------------------------------*/
 
-/* Generic SPI IRQ handler */
+/**
+ * SPI Generic IRQ Handler
+ * @param spi_instance  SPI instance
+ */
 static void spi_irq(spi_instance_t spi_instance)
 {
     uint32_t status;
@@ -161,6 +178,7 @@ static void spi_irq(spi_instance_t spi_instance)
     /* Clear Interrupt source */
     ROM_SSIIntClear(ssi_base[spi_instance], status);
 
+    /* If receive FIFO or receive timeout triggered */
     if (status & (SSI_RXFF | SSI_RXTO))
     {
         while (1)
@@ -180,6 +198,7 @@ static void spi_irq(spi_instance_t spi_instance)
             /* If transmit completed, disable RX interrupt */
             SSIIntDisable(base, SSI_RXFF | SSI_RXTO);
 
+            /* Set state to READY */
             info->state = SPI_READY;
 
             /* Schedule callback */
@@ -188,6 +207,7 @@ static void spi_irq(spi_instance_t spi_instance)
 
     }
 
+    /* If transmit FIFO triggered */
     if(status & SSI_TXFF)
     {
         for (count = 0; count < 4; count++)
@@ -195,7 +215,9 @@ static void spi_irq(spi_instance_t spi_instance)
             /* Check if there is data to be transmitted */
             if (!RingBufEmpty(&info->tx_ringbuf_obj))
             {
+                /* Read the available data from ring buffer */
                 RingBufRead(&info->tx_ringbuf_obj, &write_byte, 1);
+
                 if (SSIDataPutNonBlocking(base, write_byte) == 0)
                 {
                     /* Break loop if FIFO is full */
@@ -215,6 +237,9 @@ static void spi_irq(spi_instance_t spi_instance)
     }
 }
 
+/**
+ * SSI0 Interrupt Handler
+ */
 void SSI0IntHandler(void)
 {
     spi_irq(SPI_TFT);
@@ -225,8 +250,10 @@ void SSI0IntHandler(void)
  *-----------------------------------------------------------------------------*/
 
 /**
- * @brief SPI initialise GPIO and hardware peripheral.
- *        Use PortA 
+ * SPI initialise GPIO and hardware peripheral and register transmit complete
+ * callback
+ * @param spi_instance  SPI instance
+ * @param spi_tx_cb     SPI transmit complete callback
  */
 static void spi_open(spi_instance_t spi_instance,
                      spi_tx_cb_t    spi_tx_cb)
@@ -295,18 +322,10 @@ static void spi_open(spi_instance_t spi_instance,
     ROM_SSIEnable(base);
 }
 
-
 /**
-* @brief  Get SPI current state
-*/
-static spi_state_t spi_get_state(spi_instance_t spi_instance)
-{
-    ASSERT(spi_instance < SPI_COUNT);
-
-    return spi_info[spi_instance].state;
-}
-
-
+ * Close SPI Module
+ * @param spi_instance  SPI instance
+ */
 static void spi_close(spi_instance_t spi_instance)
 {
     ASSERT(spi_instance < SPI_COUNT);
@@ -316,6 +335,11 @@ static void spi_close(spi_instance_t spi_instance)
     ROM_SSIDisable(ssi_base[spi_instance]);
 }
 
+/**
+ * Write data to SPI (Blocking)
+ * @param spi_instance  SPI instance
+ * @param data          Write data byte
+ */
 static void spi_write(spi_instance_t spi_instance,
                       uint8_t        data)
 {
@@ -323,18 +347,24 @@ static void spi_write(spi_instance_t spi_instance,
 
     uint32_t base = ssi_base[spi_instance];
 
+    /* Wait until SPI is ready */
     while(SSIBusy(base));
     while(spi_info[spi_instance].state != SPI_READY);
 
     /* Write Data to SSI */
     ROM_SSIDataPut(base, (uint8_t)data);
 
-    /* Get Data from SSI */
+    /* Get dummy data from SSI */
     unsigned long rx_data;
     ROM_SSIDataGet(base, &rx_data);
 }
 
-
+/**
+ * Write data to SPI (Non-Blocking)
+ * @param spi_instance  SPI instance
+ * @param data          Write data byte
+ * @param data_size     Write data size
+ */
 static void spi_write_non_blocking(spi_instance_t spi_instance,
                                    uint8_t        *data,
                                    uint32_t       data_size)
@@ -350,6 +380,7 @@ static void spi_write_non_blocking(spi_instance_t spi_instance,
     {
         info->state = SPI_BUSY;
 
+        /* Store the data into ring buffer */
         RingBufWrite(&info->tx_ringbuf_obj, data, data_size);
 
         /* Enable SSI interrupt */
@@ -362,9 +393,9 @@ static void spi_write_non_blocking(spi_instance_t spi_instance,
  *-----------------------------------------------------------------------------*/
 
 /**
- * @brief SPI services initialisation
- *
- * @param spi_services
+ * SPI services initialisation
+ * @param spi_services  SPI services
+ * @param evl_services  Event loop services
  */
 void spi_init(spi_services_t        *spi_services,
               evl_services_t        *evl_services)
@@ -373,7 +404,7 @@ void spi_init(spi_services_t        *spi_services,
 
     evl = evl_services;
 
-    spi_services->get_state = spi_get_state;
+    /* SPI services initialisation */
     spi_services->open = spi_open;
     spi_services->close = spi_close;
     spi_services->write = spi_write;
@@ -381,6 +412,7 @@ void spi_init(spi_services_t        *spi_services,
 
     uint8_t i;
     
+    /* SPI internal info initialisation */
     for (i = 0; i < SPI_COUNT; i++)
     {
         spi_info[i].state = SPI_READY;
