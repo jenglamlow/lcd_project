@@ -33,6 +33,8 @@
  *  Constants
  *-----------------------------------------------------------------------------*/
 
+#define USE_INTERRUPT   0
+
 /*-----------------------------------------------------------------------------
  *  Types
  *-----------------------------------------------------------------------------*/
@@ -68,9 +70,11 @@ typedef struct
 
     void (*write)(spi_instance_t spi_instance, uint8_t data);
     
+#if USE_INTERRUPT
     void (*write_non_blocking)(spi_instance_t spi_instance,
                                uint8_t        *data,
                                uint32_t       data_size);
+#endif
 
 } spi_services_t;
 

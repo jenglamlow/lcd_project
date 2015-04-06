@@ -32,8 +32,8 @@
  *  Configurations
  *-----------------------------------------------------------------------------*/
 
- #define RX_BUFFER_SIZE 16
- #define TX_BUFFER_SIZE 1024
+#define RX_BUFFER_SIZE  16
+#define TX_BUFFER_SIZE  1024
 
 /*-----------------------------------------------------------------------------
  *  Private Types
@@ -59,6 +59,7 @@ typedef struct
     /* Receive Event Handle */
     evl_cb_handle_t evl_tx_handle;
 
+#if USE_INTERRUPT
     /* Ring Buffer for TX & RX */
     tRingBufObject tx_ringbuf_obj;
     tRingBufObject rx_ringbuf_obj;
@@ -68,6 +69,7 @@ typedef struct
 
     /* Transmit Buffer Array */
     uint8_t tx_buffer[TX_BUFFER_SIZE];
+#endif
 
     /* Client data available callback */
     spi_tx_cb_t tx_cb;
@@ -157,7 +159,7 @@ static void spi_tx_evl_cb(uint8_t ix)
 /*-----------------------------------------------------------------------------
  *  IRQ Handler
  *-----------------------------------------------------------------------------*/
-
+#if USE_INTERRUPT
 /**
  * SPI Generic IRQ Handler
  * @param spi_instance  SPI instance
@@ -236,13 +238,16 @@ static void spi_irq(spi_instance_t spi_instance)
         }
     }
 }
+#endif
 
 /**
  * SSI0 Interrupt Handler
  */
 void SSI0IntHandler(void)
 {
+#if USE_INTERRUPT
     spi_irq(SPI_TFT);
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -308,10 +313,12 @@ static void spi_open(spi_instance_t spi_instance,
                            25000000, 
                            8);
 
+#if USE_INTERRUPT
     /* Enable Interrupt for SSI */
     ROM_SSIIntDisable(base, 0xFFFFFFFF);
 
     ROM_IntEnable(ssi_int[spi_instance]);
+#endif
     
     /* Clear any residual data */
     unsigned long dummy_read_buffer[8];
@@ -359,6 +366,8 @@ static void spi_write(spi_instance_t spi_instance,
     ROM_SSIDataGet(base, &rx_data);
 }
 
+
+#if USE_INTERRUPT
 /**
  * Write data to SPI (Non-Blocking)
  * @param spi_instance  SPI instance
@@ -387,6 +396,7 @@ static void spi_write_non_blocking(spi_instance_t spi_instance,
         ROM_SSIIntEnable(base, SSI_TXFF | SSI_RXFF | SSI_RXTO);
     }
 }
+#endif
 
 /*-----------------------------------------------------------------------------
  *  Initialisation
@@ -408,7 +418,9 @@ void spi_init(spi_services_t        *spi_services,
     spi_services->open = spi_open;
     spi_services->close = spi_close;
     spi_services->write = spi_write;
+#if USE_INTERRUPT
     spi_services->write_non_blocking = spi_write_non_blocking;
+#endif
 
     uint8_t i;
     
@@ -417,6 +429,7 @@ void spi_init(spi_services_t        *spi_services,
     {
         spi_info[i].state = SPI_READY;
 
+#if USE_INTERRUPT
         RingBufInit(&spi_info[i].tx_ringbuf_obj,
                     &spi_info[i].tx_buffer[0],
                     sizeof(spi_info[i].tx_buffer));
@@ -424,6 +437,7 @@ void spi_init(spi_services_t        *spi_services,
         RingBufInit(&spi_info[i].rx_ringbuf_obj,
                     &spi_info[i].rx_buffer[0],
                     sizeof(spi_info[i].rx_buffer));
+#endif
 
         /* Allocate callback for event loop */
         if (!is_alloc)
