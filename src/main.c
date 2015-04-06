@@ -161,6 +161,7 @@ static void cpu_clock_init(void)
     ROM_IntPrioritySet(FAULT_SYSTICK, SYSTICK_INT_PRIORITY);
 }
 
+#if 0
 static void main_info_init(main_info_t *info)
 {
     info->state = STATE_IDLE;
@@ -213,6 +214,7 @@ static void nop(main_info_t *info)
 static void send_tft(main_info_t *info)
 {
 }
+#endif
 
 /*-----------------------------------------------------------------------------
  *  Event call-backs
@@ -235,15 +237,24 @@ void main_nop(void)
  *-----------------------------------------------------------------------------*/
 int main(void)
 {
-    uint8_t write_data[] = "1";
+    uint8_t write_data[] = "123456789";
+    uint8_t write_data2[] = "sushi";
 
-    main_info_init(&main_info);
+    //main_info_init(&main_info);
     service_init();
     cpu_clock_init();
     peripheral_init();
 
-    tft.test(); 
+    tft.test();
 
+    //spi.write_non_blocking(SPI_TFT, &write_data[0], sizeof(write_data));
+
+#if 0
+    tft.send_raw('A', &write_data[0], 0);
+    tft.send_raw('B', &write_data[0], sizeof(write_data));
+    tft.send_raw('C', &write_data[0], 0);
+    tft.send_raw('D', &write_data2[0], sizeof(write_data2));
+#endif
     evl.run();
 
     while(1)

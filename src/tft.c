@@ -30,7 +30,7 @@
 /*-----------------------------------------------------------------------------
  *  Configuration
  *-----------------------------------------------------------------------------*/
-#define BLOCKING            1
+#define BLOCKING            0
 
 /* TFT (ILI9341) size */
 #define TFT_HEIGHT          (320)
@@ -182,7 +182,11 @@ static spi_services_t   *spi;
 static tft_info_t       tft_info;
 static cmd_queue_t      cmd_queue;
 
+/* Function Prototype */
 static void spi_tx_cb(void);
+static void tft_send_raw(uint8_t    cmd,
+                         uint8_t*   data,
+                         uint32_t   size);
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -309,43 +313,6 @@ static void send_command_struct(tft_cmd_info_t* cmd_info)
     }
 
     spi->write_non_blocking(SPI_TFT, &cmd_info->cmd, 1);
-}
-
-static void send_raw(uint8_t    cmd,
-                     uint8_t*   data,
-                     uint32_t   size)
-{
-
-    /* Buffer the raw command */
-    tft_cmd_info_t cmd_info;
-
-    cmd_info.cmd = cmd;
-    cmd_info.size = size;
-
-    /* Queue the command data */
-    bool result;
-    result = cmd_queue_put(&cmd_info);
-    ASSERT(result != false);
-
-    /* Buffer the data byte if contain data */
-    if (size > 0)
-    {
-        RingBufWrite(&tft_info.data_ringbuf_obj, data, size);
-    }
-
-    /* Check if TFT is ready */
-    if (tft_info.state == TFT_READY)
-    {
-        tft_info.state = TFT_BUSY;
-
-        /* Send data if TFT is ready */
-        CLEAR_DC_PIN;
-
-        result = cmd_queue_read(&cmd_info);
-        ASSERT(result != false);
-
-        send_command_struct(&cmd_info);
-    }
 }
 
 /**
@@ -494,6 +461,43 @@ static void tft_register_done_callback(tft_done_cb_t tft_done_cb)
     ASSERT(tft_done_cb != NULL);
 
     tft_info.done_cb = tft_done_cb;
+}
+
+static void tft_send_raw(uint8_t    cmd,
+                         uint8_t*   data,
+                         uint32_t   size)
+{
+
+    /* Buffer the raw command */
+    tft_cmd_info_t cmd_info;
+
+    cmd_info.cmd = cmd;
+    cmd_info.size = size;
+
+    /* Queue the command data */
+    bool result;
+    result = cmd_queue_put(&cmd_info);
+    ASSERT(result != false);
+
+    /* Buffer the data byte if contain data */
+    if (size > 0)
+    {
+        RingBufWrite(&tft_info.data_ringbuf_obj, data, size);
+    }
+
+    /* Check if TFT is ready */
+    if (tft_info.state == TFT_READY)
+    {
+        tft_info.state = TFT_BUSY;
+
+        /* Send data if TFT is ready */
+        CLEAR_DC_PIN;
+
+        result = cmd_queue_read(&cmd_info);
+        ASSERT(result != false);
+
+        send_command_struct(&cmd_info);
+    }
 }
 
 /**
@@ -1181,6 +1185,7 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_char_only = tft_draw_char_only;
     tft_services->draw_string_only = tft_draw_string_only;
     tft_services->register_done_callback = tft_register_done_callback;
+    tft_services->send_raw = tft_send_raw;
 
     /* SPI Component Services */
     spi = spi_services;

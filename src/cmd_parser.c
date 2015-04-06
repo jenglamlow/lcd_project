@@ -527,6 +527,11 @@ static void pc_data_available_cb(void)
     cmd_parser_process(read_byte);
 }
 
+static void tft_done_cb(void)
+{
+
+}
+
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
@@ -535,6 +540,9 @@ static void cmd_parser_start(void)
 {
     /* Start UART Service */
     uart->open(UART_CMD, pc_data_available_cb);
+
+    /* Register TFT callback */
+    tft->register_done_callback(tft_done_cb);
 }
 
 static void cmd_parser_stop(void)

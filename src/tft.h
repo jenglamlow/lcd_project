@@ -66,6 +66,9 @@ typedef void (*tft_done_cb_t)(void);
  *-----------------------------------------------------------------------------*/
 typedef struct
 {
+    void(*send_raw)(uint8_t    cmd,
+               uint8_t*   data,
+               uint32_t   size);
     void (*register_done_callback)(tft_done_cb_t tft_done_cb);
     void (*start)(void);
     void (*clear_screen)(void);
