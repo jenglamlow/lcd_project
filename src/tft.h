@@ -69,7 +69,9 @@ typedef struct
     void(*send_raw)(uint8_t    cmd,
                uint8_t*   data,
                uint32_t   size);
+#if NON_BLOCKING
     void (*register_done_callback)(tft_done_cb_t tft_done_cb);
+#endif
     void (*start)(void);
     void (*clear_screen)(void);
     void (*fill_area)(uint16_t x0, uint16_t y0, 

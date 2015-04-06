@@ -30,7 +30,7 @@
 /*-----------------------------------------------------------------------------
  *  Configuration
  *-----------------------------------------------------------------------------*/
-#define BLOCKING            0
+#define NON_BLOCKING        (0)
 
 /* TFT (ILI9341) size */
 #define TFT_HEIGHT          (320)
@@ -142,6 +142,7 @@ typedef enum
 
 typedef void (*tft_action_t)(void);
 
+#if NON_BLOCKING
 typedef struct
 {
     uint8_t cmd;
@@ -173,14 +174,17 @@ typedef struct
     tft_done_cb_t       done_cb;
 
 } tft_info_t;
+#endif
 
 /*-----------------------------------------------------------------------------
  *  Private Data
  *-----------------------------------------------------------------------------*/
 
 static spi_services_t   *spi;
+#if NON_BLOCKING
 static tft_info_t       tft_info;
 static cmd_queue_t      cmd_queue;
+#endif
 
 /* Function Prototype */
 static void spi_tx_cb(void);
@@ -191,7 +195,7 @@ static void tft_send_raw(uint8_t    cmd,
 /*-----------------------------------------------------------------------------
  *  Helper Functions
  *-----------------------------------------------------------------------------*/
-
+#if NON_BLOCKING
 static bool cmd_queue_empty()
 {
     uint8_t rx = cmd_queue.rx;
@@ -247,6 +251,7 @@ static bool cmd_queue_read(tft_cmd_info_t *cmd_info)
 
     return !is_empty;
 }
+#endif
 
 /**
  * @brief  Initialize TFT hardware setting 
@@ -296,6 +301,7 @@ static void send_data(uint8_t data)
     spi->write(SPI_TFT, data);
 }
 
+#if NON_BLOCKING
 static void send_command_struct(tft_cmd_info_t* cmd_info)
 {
     tft_info.last_cmd.cmd = cmd_info->cmd;
@@ -314,6 +320,7 @@ static void send_command_struct(tft_cmd_info_t* cmd_info)
 
     spi->write_non_blocking(SPI_TFT, &cmd_info->cmd, 1);
 }
+#endif
 
 /**
  * @brief  TFT write in word
@@ -379,6 +386,7 @@ static void set_xy(uint16_t x, uint16_t y)
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
 
+#if NON_BLOCKING
 static void tft_state_cmd(void)
 {
     tft_cmd_info_t cmd_info;
@@ -437,10 +445,12 @@ static void tft_state_data(void)
     /* TODO: Handle next state for data */
     tft_info.send_state = STATE_CMD;
 }
+#endif
 
 /* Callback from SPI when transmission completed */
 static void spi_tx_cb(void)
 {
+#if NON_BLOCKING
     if (tft_info.send_state == STATE_CMD)
     {
         tft_state_cmd();
@@ -449,25 +459,27 @@ static void spi_tx_cb(void)
     {
         tft_state_data();
     }
+#endif
 }
 
 
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
-
+#if NON_BLOCKING
 static void tft_register_done_callback(tft_done_cb_t tft_done_cb)
 {
     ASSERT(tft_done_cb != NULL);
 
     tft_info.done_cb = tft_done_cb;
 }
+#endif
 
 static void tft_send_raw(uint8_t    cmd,
                          uint8_t*   data,
                          uint32_t   size)
 {
-
+#if NON_BLOCKING
     /* Buffer the raw command */
     tft_cmd_info_t cmd_info;
 
@@ -498,6 +510,7 @@ static void tft_send_raw(uint8_t    cmd,
 
         send_command_struct(&cmd_info);
     }
+#endif
 }
 
 /**
@@ -1184,12 +1197,15 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_number = tft_draw_number;
     tft_services->draw_char_only = tft_draw_char_only;
     tft_services->draw_string_only = tft_draw_string_only;
+#if NON_BLOCKING
     tft_services->register_done_callback = tft_register_done_callback;
+#endif
     tft_services->send_raw = tft_send_raw;
 
     /* SPI Component Services */
     spi = spi_services;
 
+#if NON_BLOCKING
     /* Initialize TFT info */
     tft_info.state = TFT_READY;
     tft_info.send_state = STATE_CMD;
@@ -1200,5 +1216,6 @@ void tft_init(tft_services_t *tft_services,
                 sizeof(tft_info.data));
     cmd_queue.rx = 0;
     cmd_queue.wx = 0;
+#endif
 }
 
