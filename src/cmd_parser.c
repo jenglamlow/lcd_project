@@ -24,47 +24,58 @@
 /* Local includes */
 #include "lib.h"
 #include "cmd_parser.h"
+#include "ringbuf.h"
 
 /*-----------------------------------------------------------------------------
  *  Configuration
  *-----------------------------------------------------------------------------*/
 
+/* Packet Definition */
 #define CMD_STX         (2U)
 #define CMD_ETX         (3U)
 
-/* Byte Order Definition */
-#define HIGH_BYTE       (0U)
-#define LOW_BYTE        (1U)
+/* Definition of Buffer Index */
+enum
+{
+    CMD_INDEX = 0U,
+    SIZE_32B_INDEX,
+    SIZE_24B_INDEX,
+    SIZE_16B_INDEX,
+    SIZE_8B_INDEX,
+    DATA_INDEX
+};
 
-/* Definition of buffer index */
-#define CMD_INDEX       (0U)
-#define SIZE_HIGH_INDEX (1U)
-#define SIZE_LOW_INDEX  (2U)
-#define DATA_INDEX      (3U)
 
 /* Definition of CMD BLK index */
-#define BLK_X0_HIGH     (3U)
-#define BLK_X0_LOW      (4U)
-#define BLK_Y0_HIGH     (5U)
-#define BLK_Y0_LOW      (6U)
-#define BLK_X1_HIGH     (7U)
-#define BLK_X1_LOW      (8U)
-#define BLK_Y1_HIGH     (9U)
-#define BLK_Y1_LOW      (10U)
-#define BLK_COLOR_HIGH  (11U)
-#define BLK_COLOR_LOW   (12U)
+enum
+{
+    BLK_X0_HIGH = 0U,
+    BLK_X0_LOW,
+    BLK_Y0_HIGH,
+    BLK_Y0_LOW,
+    BLK_X1_HIGH,
+    BLK_X1_LOW,
+    BLK_Y1_HIGH,
+    BLK_Y1_LOW,
+    BLK_COLOR_HIGH,
+    BLK_COLOR_LOW
+};
+
 
 /* Definition of CMD STR index */
-#define STR_X_HIGH      (3U)
-#define STR_X_LOW       (4U)
-#define STR_Y_HIGH      (5U)
-#define STR_Y_LOW       (6U)
-#define STR_FONT_SIZE   (7U)
-#define STR_COLOR_HIGH  (8U)
-#define STR_COLOR_LOW   (9U)
-#define STR_TEXT        (10U)
+enum
+{
+    STR_X_HIGH = 0U,
+    STR_X_LOW,
+    STR_Y_HIGH,
+    STR_Y_LOW,
+    STR_FONT_SIZE,
+    STR_COLOR_HIGH,
+    STR_COLOR_LOW,
+    STR_TEXT
+};
 
-#define MSG_SIZE        (256U)
+#define MSG_SIZE        (512U)
 
 /*-----------------------------------------------------------------------------
  *  Private Types
@@ -76,7 +87,8 @@ typedef enum
     STATE_EXPECT_STX,
     STATE_EXPECT_CMD,
     STATE_EXPECT_SIZE,
-    STATE_EXPECT_DATA,
+    STATE_EXPECT_DATA_STORE,
+    STATE_EXPECT_DATA_PASS,
     STATE_EXPECT_ETX
 } state_t;
 
@@ -87,6 +99,7 @@ typedef enum
     CMD_IMG,
     CMD_STR,
     CMD_CLR,
+    CMD_RAW,
     MAX_CMD
 } cmd_t;
 
@@ -115,11 +128,10 @@ typedef struct
     /* Buffer to store last parsed completed message */
     uint8_t buffer[MSG_SIZE];
 
-    /* Index to track buffer */
-    uint32_t index;
+    /* Struture encapsulating  */
+    tRingBufObject data_ringbuf_obj;
 
-    /* Buffer size */
-    uint32_t size;
+    uint32_t data_size;
 
 } cmd_info_t;
 
@@ -137,7 +149,8 @@ typedef void (*cmd_invoke_action_t)(void);
 static void state_stx(uint8_t byte);
 static void state_cmd(uint8_t byte);
 static void state_size(uint8_t byte);
-static void state_data(uint8_t byte);
+static void state_data_store(uint8_t byte);
+static void state_data_pass(uint8_t byte);
 static void state_etx(uint8_t byte);
 
 /* Received Command Action */
@@ -145,13 +158,15 @@ static void blk_action(void);
 static void img_action(void);
 static void str_action(void);
 static void clr_action(void);
+static void raw_action(void);
 
 /* Command Table to store command list with expected minimum data size */
 static const cmd_definition_t cmd_table[MAX_CMD] = 
 {
     {CMD_BLK, 10},
-    {CMD_IMG, 5},
+    {CMD_IMG, 4},
     {CMD_STR, 8},
+    {CMD_RAW, 0},
     {CMD_CLR, 0}
 };
 
@@ -161,7 +176,8 @@ static const cmd_state_action_t cmd_state_table[] =
     state_stx,
     state_cmd,
     state_size,
-    state_data,
+    state_data_store,
+    state_data_pass,
     state_etx,
 };
 
@@ -170,7 +186,8 @@ static const cmd_invoke_action_t cmd_invoke[] =
     blk_action,
     img_action,
     str_action,
-    clr_action
+    clr_action,
+    raw_action
 };
 
 /* Command parser service component */
@@ -204,40 +221,9 @@ static void set_state(state_t state)
     cmd_info.state = state;
 }
 
-/**
- * @brief  Store byte into buffer
- *
- * @param byte:     Data byte
- */
-static void store_buffer(uint8_t byte)
-{
-    if (cmd_info.index < MSG_SIZE)
-    {
-        cmd_info.buffer[cmd_info.index++] = byte;
-    }
-}
-
-/**
- * @brief  Reset buffer index to zero
- */
-static void reset_buffer(void)
-{
-    cmd_info.index = 0;
-}
-
 static cmd_t get_command(void)
 {
     return cmd_info.cmd.name;
-}
-
-static uint32_t get_data_size(void)
-{
-    return cmd_info.size;
-}
-
-static uint32_t get_message_size(void)
-{
-    return (cmd_info.size + 3u);
 }
 
 /**
@@ -275,6 +261,8 @@ static bool is_cmd_byte(uint8_t byte)
 
 static void state_stx(uint8_t byte)
 {
+    ASSERT(get_state() == STATE_EXPECT_STX);
+
     /* If STX found */
     if (byte == CMD_STX)
     {
@@ -284,19 +272,19 @@ static void state_stx(uint8_t byte)
 
 static void state_cmd(uint8_t byte)
 {
+    ASSERT(get_state() == STATE_EXPECT_CMD);
+
     /* Check whether byte is a valid command byte */
     if (is_cmd_byte(byte))
     {
-        /* Reset buffer index */
-        reset_buffer();
-
-        /* Store byte into buffer */
-        store_buffer(byte);
-        
         /* Store command name and expected data size */
         cmd_info.cmd.name = (cmd_t)byte;
         cmd_info.cmd.size = cmd_table[byte].size;
 
+        /* Flush ring buffer if contain any residual data */
+        RingBufFlush(&cmd_info.data_ringbuf_obj);
+
+        /* Change to Data State */
         set_state(STATE_EXPECT_SIZE);
     }
     else
@@ -308,45 +296,51 @@ static void state_cmd(uint8_t byte)
 
 static void state_size(uint8_t byte)
 {
-    static uint8_t data_byte = HIGH_BYTE;
+    ASSERT(get_state() == STATE_EXPECT_SIZE);
 
-    if(data_byte == HIGH_BYTE)
+    uint32_t data_size = 0;
+    uint8_t temp[3];
+
+    /* Buffer the first 3 byte (MSB first) */
+    if (RingBufUsed(&cmd_info.data_ringbuf_obj) < 4)
     {
-        /* High Byte */
-
-        /* Buffer the high byte order data */
-        store_buffer(byte);
-
-        /* Change the next expected byte to LOW_BYTE */
-        data_byte = LOW_BYTE;
+        RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
     }
-    else
+    /* The forth byte */
     {
-        /* Low Byte */
+        RingBufRead(&cmd_info.data_ringbuf_obj, &temp[0], 3);
 
-        /* Buffer the low byte order data */
-        store_buffer(byte);
+        data_size |= (((uint32_t)temp[0]) << 24);
+        data_size |= (((uint32_t)temp[1]) << 16);
+        data_size |= (((uint32_t)temp[2]) << 8);
+        data_size |= (((uint32_t)byte) & 0xFF);
 
-        /* Calculate 16-bit data size */
-        uint32_t high_byte = cmd_info.buffer[SIZE_HIGH_INDEX];
-        uint32_t low_byte = cmd_info.buffer[SIZE_LOW_INDEX];
+        cmd_info.data_size = data_size;
 
-        cmd_info.size = ((high_byte << 8) | low_byte);
+        ASSERT(RingBufEmpty(&cmd_info.data_ringbuf_obj));
 
-        /* Change the next expected byte to HIGH_BYTE */
-        data_byte = HIGH_BYTE;
-
-        /* Check whether there is any data input (Beside CMD & SIZE) */
-        if (cmd_info.size > 0)
+        if (data_size > 0)
         {
-            /* 
-             * Go to STATE_EXPECT_DATA when data size is greater or equal to
-             * minimum expected size
-             */
-            if (cmd_info.size >= cmd_info.cmd.size)
+            if (data_size >= cmd_info.cmd.size)
             {
-                /* set state to STATE_EXPECT_DATA */
-                set_state(STATE_EXPECT_DATA);
+                /* If command is IMG */
+                if (cmd_info.cmd.name == CMD_IMG)
+                {
+                    set_state(STATE_EXPECT_DATA_PASS);
+                }
+                else
+                {
+                    /* Store into buffer if data size is smaller than MAX size */
+                    if (data_size < MSG_SIZE)
+                    {
+                        set_state(STATE_EXPECT_DATA_STORE);
+                    }
+                    /* If exceed, pass the data instead of storing */
+                    else
+                    {
+                        set_state(STATE_EXPECT_DATA_PASS);
+                    }
+                }
             }
             else
             {
@@ -358,40 +352,44 @@ static void state_size(uint8_t byte)
         /* Jump to STATE_EXPECT_ETX when no data */
         else
         {
-                set_state(STATE_EXPECT_ETX);
-        }
-
-
-    }
-
-}
-
-static void state_data(uint8_t byte)
-{
-    uint32_t index = cmd_info.index;
-
-    /* Total size + 3 (CMD, SIZE_H, SIZE_L) */
-    uint32_t size = cmd_info.size + 3;
-    
-    if (index < size)
-    { 
-        /* Buffer byte */
-        store_buffer(byte);
-
-        /* Check whether index match the expected data size */
-        if (index == (size-1))
-        {
             set_state(STATE_EXPECT_ETX);
         }
     }
 }
 
+static void state_data_store(uint8_t byte)
+{
+    ASSERT(get_state() == STATE_EXPECT_DATA_STORE);
+    
+    /* Store buffer if less than maximum buffer size */
+    RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
+
+    /* Expected data size reached */
+    if (RingBufUsed(&cmd_info.data_ringbuf_obj) == cmd_info.data_size)
+    {
+        set_state(STATE_EXPECT_ETX);
+    }
+}
+
+static void state_data_pass(uint8_t byte)
+{
+    ASSERT(get_state() == STATE_EXPECT_DATA_PASS);
+
+    if (cmd_info.cmd.name == CMD_IMG)
+    {
+
+    }
+}
+
+
 static void state_etx(uint8_t byte)
 { 
     if (byte == CMD_ETX)
     {
-        /*  Message found  */
-        cmd_info.message_found = true;
+        /* Full packet found */
+
+
+        /* Execute action */
     }
     
 
@@ -401,28 +399,33 @@ static void state_etx(uint8_t byte)
 
 static void blk_action(void)
 {
-    /* CMD, SIZE_H, SIZE_L, x0(H) ,x0(L) ,y0(H), y0(L), x1(H), x1(L), y1(H),
-     * y1(L), color(H), color(L) */
+    ASSERT(cmd_info.cmd.name == CMD_BLK);
+
+    /* x0(H) ,x0(L) ,y0(H), y0(L), x1(H), x1(L), y1(H), y1(L),
+     * color(H), color(L) */
     uint16_t x0;
     uint16_t y0;
     uint16_t x1;
     uint16_t y1;
     uint16_t color;
+    uint8_t data[MSG_SIZE];
 
-    x0 = convert_to_word(cmd_info.buffer[BLK_X0_HIGH], 
-                         cmd_info.buffer[BLK_X0_LOW]);
+    RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
 
-    y0 = convert_to_word(cmd_info.buffer[BLK_Y0_HIGH], 
-                         cmd_info.buffer[BLK_Y0_LOW]);
+    x0 = convert_to_word(data[BLK_X0_HIGH],
+                         data[BLK_X0_LOW]);
 
-    x1 = convert_to_word(cmd_info.buffer[BLK_X1_HIGH], 
-                         cmd_info.buffer[BLK_X1_LOW]);
+    y0 = convert_to_word(data[BLK_Y0_HIGH],
+                         data[BLK_Y0_LOW]);
+
+    x1 = convert_to_word(data[BLK_X1_HIGH],
+                         data[BLK_X1_LOW]);
     
-    y1 = convert_to_word(cmd_info.buffer[BLK_Y1_HIGH], 
-                         cmd_info.buffer[BLK_Y1_LOW]);
+    y1 = convert_to_word(data[BLK_Y1_HIGH],
+                         data[BLK_Y1_LOW]);
 
-    color = convert_to_word(cmd_info.buffer[BLK_COLOR_HIGH], 
-                            cmd_info.buffer[BLK_COLOR_LOW]);
+    color = convert_to_word(data[BLK_COLOR_HIGH],
+                            data[BLK_COLOR_LOW]);
 
     tft->fill_area(x0, y0, x1, y1, color);
 }
@@ -432,40 +435,50 @@ static void img_action(void)
 
 }
 
+static void raw_action(void)
+{
+
+}
+
 static void str_action(void)
 {
-    /* CMD, SIZE_H, SIZE_L, x(H) ,x(L) ,y(H), y(L), font_size, color, 
+    ASSERT(cmd_info.cmd.name == CMD_STR);
+
+    /* x(H) ,x(L) ,y(H), y(L), font_size, color,
      * text.... */
     char text[256] = "";
+    uint8_t data[MSG_SIZE];
 
     uint16_t x;
     uint16_t y;
     uint16_t font_size;
     uint16_t color;
 
-    x = convert_to_word(cmd_info.buffer[STR_X_HIGH], 
-                        cmd_info.buffer[STR_X_LOW]);
+    RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
 
-    y = convert_to_word(cmd_info.buffer[STR_Y_HIGH], 
-                        cmd_info.buffer[STR_Y_LOW]);
+    x = convert_to_word(data[STR_X_HIGH],
+                        data[STR_X_LOW]);
 
-    font_size = (uint16_t)cmd_info.buffer[STR_FONT_SIZE];
+    y = convert_to_word(data[STR_Y_HIGH],
+                        data[STR_Y_LOW]);
 
-    color = convert_to_word(cmd_info.buffer[STR_COLOR_HIGH], 
-                            cmd_info.buffer[STR_COLOR_LOW]);
+    font_size = (uint16_t)data[STR_FONT_SIZE];
+
+    color = convert_to_word(data[STR_COLOR_HIGH],
+                            data[STR_COLOR_LOW]);
 
     /* 
      * Size = total data byte size - 7 
      * 6 = x(H) ,x(L) ,y(H), y(L), font_size, color(H), color(L)
      */
-    memcpy(&text[0], &cmd_info.buffer[STR_TEXT], (cmd_info.size - 7));
+    memcpy(&text[0], &data[STR_TEXT], (cmd_info.data_size - 7));
 
     tft->draw_string_only(&text[0], x, y, font_size, color);
 }
 
 static void clr_action(void)
 {
-    /* CMD, SIZE_H, SIZE_L */
+    ASSERT(cmd_info.cmd.name == CMD_CLR);
     
     tft->clear_screen();
 }
@@ -475,6 +488,7 @@ static cmd_t cmd_parser_get_command()
 {
     return cmd_info.cmd.name;
 }
+
 
 
 static bool cmd_parser_parse(uint8_t byte)
@@ -494,10 +508,9 @@ static bool cmd_parser_parse(uint8_t byte)
     return is_found; 
 }
 
-static bool cmd_parser_process(uint8_t byte)
+static void cmd_parser_process(uint8_t byte)
 {
-    bool is_done = false;
-
+#if 0
     if (cmd_parser_parse(byte))
     {
         /* If full message packet found */
@@ -510,8 +523,12 @@ static bool cmd_parser_process(uint8_t byte)
 
         is_done = true;
     }
-    
-    return is_done;
+#endif
+    uint8_t state = (uint8_t)get_state();
+
+    /* Execute Command Parser */
+    cmd_state_table[state](byte);
+
 }
 
 /*-----------------------------------------------------------------------------
@@ -527,11 +544,6 @@ static void pc_data_available_cb(void)
     cmd_parser_process(read_byte);
 }
 
-static void tft_done_cb(void)
-{
-
-}
-
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
@@ -542,7 +554,7 @@ static void cmd_parser_start(void)
     uart->open(UART_CMD, pc_data_available_cb);
 
     /* Register TFT callback */
-    tft->register_done_callback(tft_done_cb);
+    //tft->register_done_callback(tft_done_cb);
 }
 
 static void cmd_parser_stop(void)
@@ -554,7 +566,12 @@ static void cmd_parser_stop(void)
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
-
+/**
+ * Command parser service initialisation
+ * @param cmd_parser_services   Command parser service
+ * @param uart_services         UART service
+ * @param tft_services          TFT service
+ */
 void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
                      uart_services_t*       uart_services,
                      tft_services_t*        tft_services)
@@ -570,8 +587,12 @@ void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
     /* Command Info Initialisation */
     cmd_info.message_found = false;
     cmd_info.state = STATE_EXPECT_STX;
-    cmd_info.index = 0;
+    cmd_info.data_size = 0;
 
     cmd_info.cmd.name = MAX_CMD;
     cmd_info.cmd.size = 0;
+
+    RingBufInit(&cmd_info.data_ringbuf_obj,
+                &cmd_info.buffer[0],
+                sizeof(cmd_info.buffer));
 }
