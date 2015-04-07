@@ -89,8 +89,8 @@ typedef struct {
     /* Transmit Buffer Array */
     uint8_t tx_buffer[TX_BUFFER_SIZE];
 
-    /* Receive Event Handle */
-    evl_cb_handle_t evl_rx_handle;
+    /* UART receive flag */
+    volatile bool rx_flag;
 
     /* Client data available callback */
     uart_data_available_cb_t data_available_cb;
@@ -100,9 +100,6 @@ typedef struct {
 /*----------------------------------------------------------------------------*/
 /* Private data                                                               */
 /*----------------------------------------------------------------------------*/
-
-/* Event Loop Component */
-static evl_services_t *evl;
 
 /* Per-UART info */
 static uart_info_t uart_info[UART_COUNT];
@@ -160,10 +157,20 @@ static void uart_rx_evl_cb(uint8_t ix)
     /* Reschedule the uart data available event if still contains data */
     if (uart_data_available(info->instance))
     {
+        /* Ensure atomic process */
         IntMasterDisable();
 
-        evl->schedule(info->evl_rx_handle);
-        
+        info->rx_flag = true;
+
+        IntMasterEnable();
+    }
+    else
+    {
+        /* Ensure atomic process */
+        IntMasterDisable();
+
+        info->rx_flag = false;
+
         IntMasterEnable();
     }
 }
@@ -204,7 +211,7 @@ static void uart_irq(uart_instance_t uart_instance)
         }
 
         /* Schedule Receive Event */
-        evl->schedule(info->evl_rx_handle);
+        info->rx_flag = true;
 
     }
 
@@ -359,27 +366,44 @@ void uart_print(const char *fmt, ...)
 #endif
 }
 
+void uart_task(void)
+{
+    uint8_t ix;
+    uart_info_t *info;
+
+    for(ix = 0; ix < UART_COUNT; ix++)
+    {
+        info = &uart_info[ix];
+
+        /* Check whether there is data received */
+        if(info->rx_flag)
+        {
+            /* Invoke UART receive callback */
+            uart_rx_evl_cb(ix);
+        }
+    }
+}
+
 /*----------------------------------------------------------------------------*/
 /* Initialisation                                                             */
 /*----------------------------------------------------------------------------*/
 
-void uart_init(uart_services_t          *uart_services,
-               evl_services_t           *evl_services)
+void uart_init(uart_services_t          *uart_services)
 {
-    evl = evl_services;
-
     /* UART component initialization */
     uart_services->open = uart_open;
     uart_services->close = uart_close;
     uart_services->read = uart_read;
     uart_services->write = uart_write;
     uart_services->print = uart_print;
+    uart_services->task = uart_task;
 
     uint8_t i;
-    bool is_alloc = false;
 
     for (i = 0; i < UART_COUNT; i++)
     {
+        uart_info[i].rx_flag = false;
+
         RingBufInit(&uart_info[i].tx_ringbuf_obj,
                     &uart_info[i].tx_buffer[0],
                     sizeof(uart_info[i].tx_buffer));
@@ -387,12 +411,5 @@ void uart_init(uart_services_t          *uart_services,
         RingBufInit(&uart_info[i].rx_ringbuf_obj,
                     &uart_info[i].rx_buffer[0],
                     sizeof(uart_info[i].rx_buffer));
-
-        if (!is_alloc)
-        {
-            uart_info[i].evl_rx_handle = evl->cb_alloc(uart_rx_evl_cb, i);
-        }
     }
-
-    is_alloc = true;
 }

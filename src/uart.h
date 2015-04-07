@@ -25,7 +25,6 @@
 
 /* Local includes */
 #include "lib.h"
-#include "evl.h"
 
 /*----------------------------------------------------------------------------*/
 /* Types                                                                      */
@@ -53,8 +52,8 @@ typedef void (*uart_data_available_cb_t)(void);
 typedef struct 
 {
     /* Open UART communication */
-    void (*open)(uart_instance_t          uart_instance,
-                 uart_data_available_cb_t  uart_data_available_cb);
+    void (*open)(uart_instance_t            uart_instance,
+                 uart_data_available_cb_t   uart_data_available_cb);
 
     /* Close UART communication */
     void (*close)(uart_instance_t         uart_instance);
@@ -69,6 +68,8 @@ typedef struct
                   uint8_t               *data,
                   uint32_t              data_size);
 
+    void (*task)(void);
+
     /* Print function similar as C printf - for debugging */
     void (*print)(const char *fmt, ...);
 
@@ -79,7 +80,6 @@ typedef struct
 /*----------------------------------------------------------------------------*/
 
 /* UART driver component initialization */
-void uart_init(uart_services_t          *uart_services,
-               evl_services_t           *evl_services);
+void uart_init(uart_services_t          *uart_services);
 
 #endif
