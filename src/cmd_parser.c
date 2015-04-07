@@ -104,9 +104,6 @@ typedef struct
 
 typedef struct
 {
-    /* Flag to notify complete message found */
-    bool message_found;
-
     /* Command Definition */
     cmd_definition_t cmd;
     
@@ -163,7 +160,7 @@ static const cmd_invoke_action_t cmd_invoke[] =
     /* CMD_BLK */   blk_action,
     /* CMD_IMG */   img_action,
     /* CMD_STR */   str_action,
-    /* CMD_CLR */   clr_action
+    /* CMD_CLR */   clr_action,
     /* CMD_RAW */   raw_action
 };
 
@@ -476,25 +473,6 @@ static cmd_t cmd_parser_get_command()
     return cmd_info.cmd.name;
 }
 
-
-
-static bool cmd_parser_parse(uint8_t byte)
-{
-    bool is_found;
-    uint8_t state = (uint8_t)get_state();
-
-    /* Execute Command Parser */
-    cmd_state_table[state](byte);
-
-    /* Check whether complete message found */
-    is_found = cmd_info.message_found;
-
-    /* Clear message found flag */
-    cmd_info.message_found = false;
-
-    return is_found; 
-}
-
 static void cmd_parser_process(uint8_t byte)
 {
 #if 0
@@ -566,13 +544,11 @@ void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
     tft = tft_services;
     uart = uart_services;
 
-    cmd_parser_services->parse = cmd_parser_parse;
     cmd_parser_services->process = cmd_parser_process;
     cmd_parser_services->start = cmd_parser_start;
     cmd_parser_services->stop = cmd_parser_stop;
 
     /* Command Info Initialisation */
-    cmd_info.message_found = false;
     cmd_info.state = STATE_EXPECT_STX;
     cmd_info.data_size = 0;
 

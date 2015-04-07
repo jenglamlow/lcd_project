@@ -46,8 +46,6 @@
 typedef struct
 {
 
-    bool (*parse)(uint8_t byte);
-    
     void (*process)(uint8_t byte);
 
     void (*start)(void);
