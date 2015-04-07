@@ -259,5 +259,8 @@ int main(void)
 
         /* delay_ms(1000); */
         /* uart.write(UART_CMD, &write_data[0], sizeof(write_data)); */
+
+        /* Round Robin Task Scheduler */
+        uart.task();
     }
 }

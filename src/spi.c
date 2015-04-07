@@ -56,9 +56,6 @@ typedef struct
     /* Store SSI Instance */
     spi_instance_t instance;
 
-    /* Receive Event Handle */
-    evl_cb_handle_t evl_tx_handle;
-
 #if USE_INTERRUPT
     /* Ring Buffer for TX & RX */
     tRingBufObject tx_ringbuf_obj;
@@ -128,9 +125,6 @@ static const uint32_t ssi_gpio_pin[] =
     GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7,
     GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3
 };
-
-/* Event Loop Services */
-static evl_services_t *evl;
 
 /* Per-SPI info */
 static spi_info_t spi_info[SPI_COUNT];
@@ -405,15 +399,9 @@ static void spi_write_non_blocking(spi_instance_t spi_instance,
 /**
  * SPI services initialisation
  * @param spi_services  SPI services
- * @param evl_services  Event loop services
  */
-void spi_init(spi_services_t        *spi_services,
-              evl_services_t        *evl_services)
+void spi_init(spi_services_t        *spi_services)
 {
-    static bool is_alloc = false;
-
-    evl = evl_services;
-
     /* SPI services initialisation */
     spi_services->open = spi_open;
     spi_services->close = spi_close;
@@ -438,13 +426,5 @@ void spi_init(spi_services_t        *spi_services,
                     &spi_info[i].rx_buffer[0],
                     sizeof(spi_info[i].rx_buffer));
 #endif
-
-        /* Allocate callback for event loop */
-        if (!is_alloc)
-        {
-            spi_info[i].evl_tx_handle = evl->cb_alloc(spi_tx_evl_cb, i);
-        }
     }
-
-    is_alloc = true;
 }

@@ -27,7 +27,6 @@
 
 /* Local includes */
 #include "lib.h"
-#include "evl.h"
 
 /*-----------------------------------------------------------------------------
  *  Constants
@@ -82,7 +81,6 @@ typedef struct
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
-void spi_init(spi_services_t        *spi_services,
-              evl_services_t        *evl_services);
+void spi_init(spi_services_t        *spi_services);
 
 #endif
