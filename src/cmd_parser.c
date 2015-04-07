@@ -34,18 +34,6 @@
 #define CMD_STX         (2U)
 #define CMD_ETX         (3U)
 
-/* Definition of Buffer Index */
-enum
-{
-    CMD_INDEX = 0U,
-    SIZE_32B_INDEX,
-    SIZE_24B_INDEX,
-    SIZE_16B_INDEX,
-    SIZE_8B_INDEX,
-    DATA_INDEX
-};
-
-
 /* Definition of CMD BLK index */
 enum
 {
@@ -166,8 +154,17 @@ static const cmd_definition_t cmd_table[MAX_CMD] =
     {CMD_BLK, 10},
     {CMD_IMG, 4},
     {CMD_STR, 8},
-    {CMD_RAW, 0},
-    {CMD_CLR, 0}
+    {CMD_CLR, 0},
+    {CMD_RAW, 0}
+};
+
+static const cmd_invoke_action_t cmd_invoke[] =
+{
+    /* CMD_BLK */   blk_action,
+    /* CMD_IMG */   img_action,
+    /* CMD_STR */   str_action,
+    /* CMD_CLR */   clr_action
+    /* CMD_RAW */   raw_action
 };
 
 /* Table storing command state function */
@@ -181,17 +178,7 @@ static const cmd_state_action_t cmd_state_table[] =
     state_etx,
 };
 
-static const cmd_invoke_action_t cmd_invoke[] = 
-{
-    blk_action,
-    img_action,
-    str_action,
-    clr_action,
-    raw_action
-};
-
 /* Command parser service component */
-static cmd_parser_services_t    *cmd_parser;
 static tft_services_t           *tft;
 static uart_services_t          *uart;
 
