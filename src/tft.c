@@ -510,6 +510,14 @@ static void tft_send_raw(uint8_t    cmd,
 
         send_command_struct(&cmd_info);
     }
+#else
+    uint32_t i;
+
+    send_command(cmd);
+    for (i = 0; i < size; i++)
+    {
+        send_data(data[i]);
+    }
 #endif
 }
 
@@ -1197,6 +1205,7 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_number = tft_draw_number;
     tft_services->draw_char_only = tft_draw_char_only;
     tft_services->draw_string_only = tft_draw_string_only;
+    tft_services->set_pixel = tft_set_pixel;
 #if NON_BLOCKING
     tft_services->register_done_callback = tft_register_done_callback;
 #endif

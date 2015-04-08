@@ -114,6 +114,8 @@ typedef struct
                              uint16_t size, uint16_t color);
     void (*test)(void);
 
+    void (*set_pixel)(uint16_t x, uint16_t y, uint16_t color);
+
     void (*running_animation)(void);
 } tft_services_t;
 

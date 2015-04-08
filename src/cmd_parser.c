@@ -120,6 +120,22 @@ typedef struct
 
 } cmd_info_t;
 
+typedef enum
+{
+    STATE_IMG_SIZE,
+    STATE_IMG_PIXEL,
+} img_state_t;
+
+typedef struct
+{
+    uint16_t    height;
+    uint16_t    width;
+    img_state_t state;
+    uint8_t     buffer[4];
+    uint8_t     buffer_idx;
+    uint32_t    pix_idx;
+} img_t;
+
 /* Function Pointer for Command Parser State Action */
 typedef void (*cmd_state_action_t)(uint8_t byte);
 
@@ -140,7 +156,7 @@ static void state_etx(uint8_t byte);
 
 /* Received Command Action */
 static void blk_action(void);
-static void img_action(void);
+static void img_action(uint8_t byte);
 static void str_action(void);
 static void clr_action(void);
 static void raw_action(void);
@@ -158,7 +174,7 @@ static const cmd_definition_t cmd_table[MAX_CMD] =
 static const cmd_invoke_action_t cmd_invoke[] =
 {
     /* CMD_BLK */   blk_action,
-    /* CMD_IMG */   img_action,
+    /* CMD_IMG */   0,
     /* CMD_STR */   str_action,
     /* CMD_CLR */   clr_action,
     /* CMD_RAW */   raw_action
@@ -180,7 +196,8 @@ static tft_services_t           *tft;
 static uart_services_t          *uart;
 
 /* Command State */
-static cmd_info_t cmd_info;
+static cmd_info_t  cmd_info;
+static img_t       img;
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -203,11 +220,6 @@ static state_t get_state(void)
 static void set_state(state_t state)
 {
     cmd_info.state = state;
-}
-
-static cmd_t get_command(void)
-{
-    return cmd_info.cmd.name;
 }
 
 /**
@@ -291,6 +303,7 @@ static void state_size(uint8_t byte)
         RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
     }
     /* The forth byte */
+    else
     {
         RingBufRead(&cmd_info.data_ringbuf_obj, &temp[0], 3);
 
@@ -359,21 +372,36 @@ static void state_data_pass(uint8_t byte)
 {
     ASSERT(get_state() == STATE_EXPECT_DATA_PASS);
 
+    static uint32_t current_data = 0;
+
+    current_data++;
+
     if (cmd_info.cmd.name == CMD_IMG)
     {
+        /* Execute image action */
+        img_action(byte);
+    }
 
+    if (current_data == cmd_info.data_size)
+    {
+        img.state = STATE_IMG_SIZE;
+
+        set_state(STATE_EXPECT_ETX);
     }
 }
 
 
 static void state_etx(uint8_t byte)
 { 
+    /* Full packet found */
     if (byte == CMD_ETX)
     {
-        /* Full packet found */
-
-
-        /* Execute action */
+        /* Check whether is Command IMG */
+        if (cmd_info.cmd.name != CMD_IMG)
+        {
+            /* Execute action */
+            cmd_invoke[cmd_info.cmd.name]();
+        }
     }
     
 
@@ -414,9 +442,65 @@ static void blk_action(void)
     tft->fill_area(x0, y0, x1, y1, color);
 }
 
-static void img_action(void)
+static void img_action(uint8_t byte)
 {
+    /* h(H), h(L), w(H), w(L), 16bit-pixel */
 
+    uint16_t height = 0;
+    uint16_t width = 0;
+    uint16_t color = 0;
+    uint16_t x,y;
+
+    if (img.state == STATE_IMG_SIZE)
+    {
+        /* Buffer the first 3 byte (MSB first) */
+        if (img.buffer_idx < 4)
+        {
+            img.buffer[img.buffer_idx++] = byte;
+        }
+        else
+        /* The forth byte */
+        {
+            /* Get Height and Width */
+            height |= (((uint16_t)img.buffer[0]) << 8);
+            height |= (((uint16_t)img.buffer[1]) & 0xFF);
+            width |= (((uint16_t)img.buffer[2]) << 8);
+            width |= (((uint16_t)byte) & 0xFF);
+
+            /* Change image state to PIXEL */
+            img.state = STATE_IMG_PIXEL;
+            img.height = height;
+            img.width = width;
+
+            /* Reset buffer to store pixel data */
+            img.buffer_idx = 0;
+            img.pix_idx = 0;
+        }
+    }
+    /* STATE_IMG_PIXEL */
+    else
+    {
+        /* Color in 16-bit, buffer the high byte first */
+        if (img.buffer_idx < 2)
+        {
+            img.buffer[img.buffer_idx++] = byte;
+        }
+        else
+        {
+            /* Get 16-bit color */
+            color |= (((uint16_t)img.buffer[0]) << 8);
+            color |= (((uint16_t)byte) & 0xFF);
+
+            /* Reset buffer to store pixel data */
+            img.buffer_idx = 0;
+            img.pix_idx = 0;
+
+            /* Start draw pixel */
+            x = (img.pix_idx % img.height);
+            y = (img.pix_idx / img.height);
+            tft->set_pixel(x, y, color);
+        }
+    }
 }
 
 static void raw_action(void)
@@ -428,8 +512,8 @@ static void str_action(void)
 {
     ASSERT(cmd_info.cmd.name == CMD_STR);
 
-    /* x(H) ,x(L) ,y(H), y(L), font_size, color,
-     * text.... */
+    /* x(H) ,x(L) ,y(H), y(L), font_size, color, text.... */
+
     char text[256] = "";
     uint8_t data[MSG_SIZE];
 
@@ -465,12 +549,6 @@ static void clr_action(void)
     ASSERT(cmd_info.cmd.name == CMD_CLR);
     
     tft->clear_screen();
-}
-
-
-static cmd_t cmd_parser_get_command()
-{
-    return cmd_info.cmd.name;
 }
 
 static void cmd_parser_process(uint8_t byte)
@@ -554,6 +632,12 @@ void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
 
     cmd_info.cmd.name = MAX_CMD;
     cmd_info.cmd.size = 0;
+
+    img.height = 0;
+    img.width = 0;
+    img.state = STATE_IMG_SIZE;
+    img.buffer_idx = 0;
+    img.pix_idx = 0;
 
     RingBufInit(&cmd_info.data_ringbuf_obj,
                 &cmd_info.buffer[0],
