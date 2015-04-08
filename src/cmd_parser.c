@@ -122,7 +122,7 @@ typedef struct
 
 typedef enum
 {
-    STATE_IMG_SIZE,
+    STATE_IMG_PARAM,
     STATE_IMG_PIXEL,
 } img_state_t;
 
@@ -130,8 +130,10 @@ typedef struct
 {
     uint16_t    height;
     uint16_t    width;
+    uint16_t    x;
+    uint16_t    y;
     img_state_t state;
-    uint8_t     buffer[4];
+    uint8_t     buffer[8];
     uint8_t     buffer_idx;
     uint32_t    pix_idx;
 } img_t;
@@ -384,7 +386,7 @@ static void state_data_pass(uint8_t byte)
 
     if (current_data == cmd_info.data_size)
     {
-        img.state = STATE_IMG_SIZE;
+        img.state = STATE_IMG_PARAM;
 
         set_state(STATE_EXPECT_ETX);
     }
@@ -444,33 +446,43 @@ static void blk_action(void)
 
 static void img_action(uint8_t byte)
 {
-    /* h(H), h(L), w(H), w(L), 16bit-pixel */
+    /* x(H), x(L), y(H), y(L), h(H), h(L), w(H), w(L), 16bit-pixel */
 
     uint16_t height = 0;
     uint16_t width = 0;
     uint16_t color = 0;
-    uint16_t x,y;
+    uint16_t x = 0;
+    uint16_t y = 0;
 
-    if (img.state == STATE_IMG_SIZE)
+    if (img.state == STATE_IMG_PARAM)
     {
-        /* Buffer the first 3 byte (MSB first) */
-        if (img.buffer_idx < 4)
+        /* Buffer the first 7 byte (MSB first) */
+        if (img.buffer_idx < 8)
         {
             img.buffer[img.buffer_idx++] = byte;
         }
         else
-        /* The forth byte */
+        /* The 8th byte */
         {
             /* Get Height and Width */
-            height |= (((uint16_t)img.buffer[0]) << 8);
-            height |= (((uint16_t)img.buffer[1]) & 0xFF);
-            width |= (((uint16_t)img.buffer[2]) << 8);
+            x |= (((uint16_t)img.buffer[0]) << 8);
+            x |= (((uint16_t)img.buffer[1]) & 0xFF);
+            y |= (((uint16_t)img.buffer[2]) << 8);
+            y |= (((uint16_t)img.buffer[3]) & 0xFF);
+
+            height |= (((uint16_t)img.buffer[4]) << 8);
+            height |= (((uint16_t)img.buffer[5]) & 0xFF);
+            width |= (((uint16_t)img.buffer[6]) << 8);
             width |= (((uint16_t)byte) & 0xFF);
 
             /* Change image state to PIXEL */
             img.state = STATE_IMG_PIXEL;
+
+            /* Store the param into img structure */
             img.height = height;
             img.width = width;
+            img.x = x;
+            img.y = y;
 
             /* Reset buffer to store pixel data */
             img.buffer_idx = 0;
@@ -642,7 +654,7 @@ void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
 
     img.height = 0;
     img.width = 0;
-    img.state = STATE_IMG_SIZE;
+    img.state = STATE_IMG_PARAM;
     img.buffer_idx = 0;
     img.pix_idx = 0;
 
