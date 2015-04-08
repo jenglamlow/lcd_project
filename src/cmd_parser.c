@@ -511,6 +511,8 @@ static void img_action(uint8_t byte)
             x = (img.pix_idx % img.height);
             y = (img.pix_idx / img.height);
             tft->set_pixel(x, y, color);
+
+            img.pix_idx++;
         }
     }
 }
