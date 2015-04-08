@@ -505,6 +505,13 @@ static void img_action(uint8_t byte)
 
 static void raw_action(void)
 {
+    uint8_t data[MSG_SIZE];
+
+    /* RAW, data... */
+
+    RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
+
+    tft->send_raw(data[0], &data[1], (cmd_info.data_size - 1));
 
 }
 
