@@ -37,6 +37,14 @@ class Color(Enum):
 # =============================================================================
 
 
+def high_word_high_byte(value):
+    return (value >> 24) & 0xff
+
+
+def high_word_low_byte(value):
+    return (value >> 16) & 0xff
+
+
 def high_byte(value):
     return (value >> 8) & 0xff
 
@@ -83,6 +91,8 @@ class Command:
         packet = []
         packet.append(STX)
         packet.append(self._param[0])
+        packet.append(high_word_high_byte(param_size))
+        packet.append(high_word_low_byte(param_size))
         packet.append(high_byte(param_size))
         packet.append(low_byte(param_size))
 
@@ -209,11 +219,26 @@ class ImageCommand():
         param.append(high_byte(self._img.size[1]))
         param.append(low_byte(self._img.size[1]))
 
-        # Image
+        pixel = int(len(array_1d) / 3)
+        for i in range(pixel):
+            r = array_1d[(3 * i)]
+            g = array_1d[(3 * i) + 1]
+            b = array_1d[(3 * i) + 2]
 
-        # text
-        # for i in range(len(text)):
-        #     param.append(ord(text[i]))
+            r = r >> 3
+            r = r << 6
+
+            g = g >> 2
+            r = r | g
+            r = r << 5
+
+            b = b >> 3
+            r = r | b
+
+            param.append(high_byte(r))
+            param.append(low_byte(r))
+
+        self._command.param = param
 
     def __init__(self, pos, img):
         self._command = Command()
@@ -244,6 +269,14 @@ class Ftdi:
         self.print_info(command)
         self.ser.write(bytes(command._command.packet))
 
+    def send_image(self, command):
+        print ("Sending image with packet:")
+        for i in range(14):
+            print (command._command.packet[i], ",", end='')
+        print ('image pixel...', ',', end='')
+        print (command._command.packet[-1])
+        self.ser.write(bytes(command._command.packet))
+
     def test_write(self):
         test_data = [2, 3, 0, 0, 3]
         print ("Sending testing command")
@@ -256,7 +289,8 @@ class Ftdi:
 # =============================================================================
 
 # Device FTDI class initialisation
-dev = Ftdi('/dev/ttyUSB0', 115200)
+# dev = Ftdi('/dev/ttyUSB0', 115200)
+dev = Ftdi('COM6', 115200)
 
 # Command Class Initialisation
 clear_command = ClearCommand()
@@ -291,7 +325,7 @@ def string_action():
 
 
 def image_action():
-    pass
+    dev.send_image(image_command)
 
 
 def test_action():
@@ -324,13 +358,6 @@ action_map = {
 print ("")
 print ("FTDI testing script")
 print ("===================")
-
-img = Image.open("test.bmp")
-arr = numpy.asarray(img)
-
-
-img_list = []
-
 
 while (True):
     print ("")

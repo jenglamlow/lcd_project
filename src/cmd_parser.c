@@ -197,6 +197,8 @@ static const cmd_state_action_t cmd_state_table[] =
 static tft_services_t           *tft;
 static uart_services_t          *uart;
 
+static uint8_t data[10];
+
 /* Command State */
 static cmd_info_t  cmd_info;
 static img_t       img;
@@ -300,7 +302,7 @@ static void state_size(uint8_t byte)
     uint8_t temp[3];
 
     /* Buffer the first 3 byte (MSB first) */
-    if (RingBufUsed(&cmd_info.data_ringbuf_obj) < 4)
+    if (RingBufUsed(&cmd_info.data_ringbuf_obj) < 3)
     {
         RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
     }
@@ -402,7 +404,7 @@ static void state_etx(uint8_t byte)
         if (cmd_info.cmd.name != CMD_IMG)
         {
             /* Execute action */
-            cmd_invoke[cmd_info.cmd.name]();
+            cmd_invoke[(uint8_t)(cmd_info.cmd.name)]();
         }
     }
     
@@ -422,7 +424,6 @@ static void blk_action(void)
     uint16_t x1;
     uint16_t y1;
     uint16_t color;
-    uint8_t data[MSG_SIZE];
 
     RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
 
@@ -508,8 +509,8 @@ static void img_action(uint8_t byte)
             img.pix_idx = 0;
 
             /* Start draw pixel */
-            x = (img.pix_idx % img.height);
-            y = (img.pix_idx / img.height);
+            x = (img.pix_idx % img.height) + img.x;
+            y = (img.pix_idx / img.height) + img.y;
             tft->set_pixel(x, y, color);
 
             img.pix_idx++;
@@ -519,8 +520,6 @@ static void img_action(uint8_t byte)
 
 static void raw_action(void)
 {
-    uint8_t data[MSG_SIZE];
-
     /* RAW, data... */
 
     RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
@@ -536,7 +535,6 @@ static void str_action(void)
     /* x(H) ,x(L) ,y(H), y(L), font_size, color, text.... */
 
     char text[256] = "";
-    uint8_t data[MSG_SIZE];
 
     uint16_t x;
     uint16_t y;
