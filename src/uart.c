@@ -262,7 +262,7 @@ static void uart_open(uart_instance_t          uart_instance,
     /* Enable UART Peripheral */
     ROM_SysCtlPeripheralEnable(uart_peripheral[uart_instance]);
 
-    ROM_UARTConfigSetExpClk(base, SysCtlClockGet(), 115200,
+    ROM_UARTConfigSetExpClk(base, SysCtlClockGet(), 230400,
                             (UART_CONFIG_PAR_NONE | UART_CONFIG_STOP_ONE |
                             UART_CONFIG_WLEN_8));
     

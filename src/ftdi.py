@@ -290,7 +290,7 @@ class Ftdi:
 
 # Device FTDI class initialisation
 # dev = Ftdi('/dev/ttyUSB0', 115200)
-dev = Ftdi('COM6', 115200)
+dev = Ftdi('COM3', 230400)
 
 # Command Class Initialisation
 clear_command = ClearCommand()
@@ -303,7 +303,7 @@ string_command = StringCommand([100, 100], 3, Color.yellow, "HELLO")
 
 string2_command = StringCommand([10, 200], 3, Color.green, "TESTING")
 
-image_command = ImageCommand([100, 100], "test.bmp")
+image_command = ImageCommand([0, 0], "test.bmp")
 
 # =============================================================================
 #    Action Function

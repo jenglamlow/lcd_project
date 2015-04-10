@@ -197,7 +197,9 @@ static const cmd_state_action_t cmd_state_table[] =
 static tft_services_t           *tft;
 static uart_services_t          *uart;
 
-static uint8_t data[10];
+/* Global variable temporary buffer storage */
+static uint8_t data[MSG_SIZE];
+static char text[256] = "";
 
 /* Command State */
 static cmd_info_t  cmd_info;
@@ -458,7 +460,7 @@ static void img_action(uint8_t byte)
     if (img.state == STATE_IMG_PARAM)
     {
         /* Buffer the first 7 byte (MSB first) */
-        if (img.buffer_idx < 8)
+        if (img.buffer_idx < 7)
         {
             img.buffer[img.buffer_idx++] = byte;
         }
@@ -494,7 +496,7 @@ static void img_action(uint8_t byte)
     else
     {
         /* Color in 16-bit, buffer the high byte first */
-        if (img.buffer_idx < 2)
+        if (img.buffer_idx < 1)
         {
             img.buffer[img.buffer_idx++] = byte;
         }
@@ -506,7 +508,6 @@ static void img_action(uint8_t byte)
 
             /* Reset buffer to store pixel data */
             img.buffer_idx = 0;
-            img.pix_idx = 0;
 
             /* Start draw pixel */
             x = (img.pix_idx % img.height) + img.x;
@@ -534,12 +535,11 @@ static void str_action(void)
 
     /* x(H) ,x(L) ,y(H), y(L), font_size, color, text.... */
 
-    char text[256] = "";
-
     uint16_t x;
     uint16_t y;
     uint16_t font_size;
     uint16_t color;
+    uint8_t text_size = cmd_info.data_size - 7;
 
     RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
 
@@ -558,9 +558,18 @@ static void str_action(void)
      * Size = total data byte size - 7 
      * 6 = x(H) ,x(L) ,y(H), y(L), font_size, color(H), color(L)
      */
-    memcpy(&text[0], &data[STR_TEXT], (cmd_info.data_size - 7));
+    memcpy(&text[0], &data[STR_TEXT], text_size);
+
+    /* Set Null terminate at the last character */
+    text[text_size] = 0;
 
     tft->draw_string_only(&text[0], x, y, font_size, color);
+    tft->set_pixel(10,10,RED);
+    tft->set_pixel(10,11,RED);
+    tft->set_pixel(10,12,RED);
+    tft->set_pixel(10,13,RED);
+    tft->set_pixel(10,14,RED);
+    tft->set_pixel(10,15,RED);
 }
 
 static void clr_action(void)
