@@ -179,13 +179,20 @@ typedef struct
 } tft_info_t;
 #endif
 
+typedef struct
+{
+    uint16_t max_x;
+    uint16_t max_y;
+    uint8_t  orientation;
+} tft_info_t;
+
 /*-----------------------------------------------------------------------------
  *  Private Data
  *-----------------------------------------------------------------------------*/
 
 static spi_services_t   *spi;
-#if NON_BLOCKING
 static tft_info_t       tft_info;
+#if NON_BLOCKING
 static cmd_queue_t      cmd_queue;
 #endif
 
@@ -558,29 +565,89 @@ static void tft_done_transfer(void)
     SET_CS_PIN;
 }
 
+static void tft_set_orientation(uint8_t orientation)
+{
+    send_command(MADCTL);       /* Memory Access Control */
+    send_data(orientation);     /* Refresh Order - BGR colour filter */
+
+    tft_info.orientation = orientation;
+    if ((orientation == ORIENT_H) || (orientation == ORIENT_H_I))
+    {
+        tft_info.max_x = MAX_X;
+        tft_info.max_y = MAX_Y;
+    }
+    else
+    {
+        tft_info.max_x = MAX_Y;
+        tft_info.max_y = MAX_X;
+    }
+
+}
+
+/**
+ * @brief Fill area (x0, y0) to (x1, y1) with colour
+ *
+ * @param x0: Top left x coordinate
+ * @param y0: Top left y coordinate
+ * @param x1: Bottom right x coordinate
+ * @param y1: Bottom right y coordinate
+ * @param color: Refer color macro
+ */
+static void tft_fill_area(uint16_t x0, uint16_t y0,
+                          uint16_t x1, uint16_t y1,
+                          uint16_t color)
+{
+    uint32_t xy=0;
+    uint32_t i=0;
+
+    /* Using XOR operator to swap both value */
+    if(x0 > x1)
+    {
+        x0 = x0^x1;
+        x1 = x0^x1;
+        x0 = x0^x1;
+    }
+
+    if(y0 > y1)
+    {
+        y0 = y0^y1;
+        y1 = y0^y1;
+        y0 = y0^y1;
+    }
+
+    /* Constrain number to be within a range */
+    x0 = constrain(x0, MIN_X, tft_info.max_x);
+    x1 = constrain(x1, MIN_X, tft_info.max_x);
+    y0 = constrain(y0, MIN_Y, tft_info.max_y);
+    y1 = constrain(y1, MIN_Y, tft_info.max_y);
+
+    /* get total area (pixels) */
+    xy = (x1 - x0 + 1);
+    xy = xy * (y1 - y0 + 1);
+
+    /* Set Coordinate */
+    tft_set_area(x0, y0, x1, y1);
+
+    SET_DC_PIN;
+    CLEAR_CS_PIN;
+
+    /* Start Filling area with color */
+    uint8_t high_color = color >> 8;
+    uint8_t low_color = color & 0xff;
+    for(i=0; i < xy; i++)
+    {
+        spi->write(SPI_TFT, high_color);
+        spi->write(SPI_TFT, low_color);
+    }
+    SET_CS_PIN;
+}
+
 /**
 * @brief  Clear TFT screen to all black
 */
 static void tft_clear_screen(void)
 {
-    tft_set_area(0, 0, (TFT_HEIGHT - 1), (TFT_WIDTH - 1));
-
-    SET_DC_PIN;
-    
-    uint32_t total_pixel = (TFT_WIDTH * TFT_HEIGHT) / 2;
-
-    CLEAR_CS_PIN;
-
-    uint16_t i;
-    for (i=0; i<total_pixel; i++)
-    {
-        spi->write(SPI_TFT,0);
-        spi->write(SPI_TFT,0);
-        spi->write(SPI_TFT,0);
-        spi->write(SPI_TFT,0);
-    }
-
-    SET_CS_PIN;
+    tft_fill_area(MIN_X, MIN_Y, tft_info.max_x, tft_info.max_y, BLACK);
 }
 
 /**
@@ -647,8 +714,7 @@ static void tft_start(void)
     send_command(ILIVC2);    
     send_data(0x86);     
 
-    send_command(MADCTL);       /* Memory Access Control */
-    send_data(0xe8);            /* Refresh Order - BGR colour filter */
+    tft_set_orientation(ORIENT_H);
 
     send_command(COLMOD);          /* Pixel Format Set */
     send_data(0x55);               /* 16 bits/pixel */
@@ -810,64 +876,6 @@ static void tft_draw_line(uint16_t x0, uint16_t y0,
             y0 += sy;
         }
     } 
-}
-
-/**
- * @brief Fill area (x0, y0) to (x1, y1) with colour 
- *
- * @param x0: Top left x coordinate
- * @param y0: Top left y coordinate
- * @param x1: Bottom right x coordinate
- * @param y1: Bottom right y coordinate
- * @param color: Refer color macro
- */
-static void tft_fill_area(uint16_t x0, uint16_t y0, 
-                          uint16_t x1, uint16_t y1, 
-                          uint16_t color)
-{
-    uint32_t xy=0;
-    uint32_t i=0;
-
-    /* Using XOR operator to swap both value */
-    if(x0 > x1)
-    {
-        x0 = x0^x1;
-        x1 = x0^x1;
-        x0 = x0^x1;
-    }
-
-    if(y0 > y1)
-    {
-        y0 = y0^y1;
-        y1 = y0^y1;
-        y0 = y0^y1;
-    }
-
-    /* Constrain number to be within a range */
-    x0 = constrain(x0, MIN_X, MAX_X);
-    x1 = constrain(x1, MIN_X, MAX_X);
-    y0 = constrain(y0, MIN_Y, MAX_Y);
-    y1 = constrain(y1, MIN_Y, MAX_Y);
-
-    /* get total area (pixels) */
-    xy = (x1 - x0 + 1);
-    xy = xy * (y1 - y0 + 1);
-
-    /* Set Coordinate */
-    tft_set_area(x0, y0, x1, y1);
-                        
-    SET_DC_PIN;
-    CLEAR_CS_PIN;
-
-    /* Start Filling area with color */
-    uint8_t high_color = color >> 8;
-    uint8_t low_color = color & 0xff;
-    for(i=0; i < xy; i++)
-    {
-        spi->write(SPI_TFT, high_color);
-        spi->write(SPI_TFT, low_color);
-    }
-    SET_CS_PIN;
 }
 
 static void tft_direct_write_word(uint8_t high, uint8_t low)
@@ -1057,7 +1065,7 @@ static void tft_draw_string(char *string, uint16_t x, uint16_t y,
         tft_draw_char(*string, x, y, size, fgcolor, bgcolor);
         *string++;
 
-        if(x < MAX_X)
+        if(x < tft_info.max_x)
         {
             x += TFT_FONT_SPACE * size;                                     /* Move cursor right            */
         }
@@ -1089,7 +1097,7 @@ static uint8_t tft_draw_number(int long_num, uint16_t x, uint16_t y,
         f = 1;
         tft_draw_char('-',x, y, size, fgcolor, bgcolor);
         long_num = -long_num;
-        if(x < MAX_X)
+        if(x < tft_info.max_x)
         {
             x += TFT_FONT_SPACE * size;        
         }
@@ -1100,7 +1108,7 @@ static uint8_t tft_draw_number(int long_num, uint16_t x, uint16_t y,
         f = 1;
         tft_draw_char('0', x, y, size, fgcolor, bgcolor);
         return f;
-        if(x < MAX_X)
+        if(x < tft_info.max_x)
         {
             x += TFT_FONT_SPACE * size;       
         }
@@ -1116,7 +1124,7 @@ static uint8_t tft_draw_number(int long_num, uint16_t x, uint16_t y,
     for(; i > 0; i--)
     {
         tft_draw_char('0'+ char_buffer[i - 1], x, y, size, fgcolor, bgcolor);
-        if(x < MAX_X)
+        if(x < tft_info.max_x)
         {
             /* Move the cursor to right */
             x += TFT_FONT_SPACE*size; 
@@ -1178,7 +1186,7 @@ static void tft_draw_string_only(char *string, uint16_t x, uint16_t y,
         tft_draw_char_only(*string, x, y, size, color);
         *string++;
 
-        if(x < MAX_X)
+        if(x < tft_info.max_x)
         {
             x += TFT_FONT_SPACE * size;
         }
@@ -1259,16 +1267,16 @@ void tft_init(tft_services_t *tft_services,
     tft_services->start_image_transfer = tft_start_image_transfer;
     tft_services->direct_write_word = tft_direct_write_word;
     tft_services->done_transfer = tft_done_transfer;
+    tft_services->set_orientation = tft_set_orientation;
+    tft_services->send_raw = tft_send_raw;
 #if NON_BLOCKING
     tft_services->register_done_callback = tft_register_done_callback;
 #endif
-    tft_services->send_raw = tft_send_raw;
 
     /* SPI Component Services */
     spi = spi_services;
 
 #if NON_BLOCKING
-    /* Initialize TFT info */
     tft_info.state = TFT_READY;
     tft_info.send_state = STATE_CMD;
 

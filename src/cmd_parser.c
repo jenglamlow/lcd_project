@@ -519,7 +519,7 @@ static void img_action(uint8_t byte)
                 area_set = true;
 
                 /* Start image transaction by setting area boundary */
-                tft->start_image_transfer(img.x, img.y, y1, x1);
+                tft->start_image_transfer(img.x, img.y, x1, y1);
             }
             /* Transfer pixel information */
             else
@@ -581,7 +581,7 @@ static void clr_action(void)
 {
     ASSERT(cmd_info.cmd.name == CMD_CLR);
     
-    tft->fill_area(0, 0, 319, 239, BLACK);
+    tft->clear_screen();
 }
 
 static void cmd_parser_process(uint8_t byte)

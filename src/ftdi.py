@@ -348,6 +348,11 @@ def test_action():
     string_action()
     time.sleep(0.5)
 
+    clear_action()
+    time.sleep(0.5)
+    
+    image_action()
+
 
 def errHandler():
     print("")
