@@ -39,7 +39,7 @@
 #define UART_COUNT          (3U)
 
 /* UART Transmit Buffer Size */
-#define RX_BUFFER_SIZE      (512U)
+#define RX_BUFFER_SIZE      (4096U)
 
 /* UART Receive Buffer Size */
 #define TX_BUFFER_SIZE      (512U)
@@ -83,12 +83,6 @@ typedef struct {
     /* Store UART Instance */
     uart_instance_t instance;
 
-    /* Receive Buffer Array */
-    uint8_t rx_buffer[RX_BUFFER_SIZE];
-
-    /* Transmit Buffer Array */
-    uint8_t tx_buffer[TX_BUFFER_SIZE];
-
     /* UART receive flag */
     volatile bool rx_flag;
 
@@ -103,6 +97,12 @@ typedef struct {
 
 /* Per-UART info */
 static uart_info_t uart_info[UART_COUNT];
+
+/* UART1 Receive Buffer Array */
+uint8_t uart1_rx_buffer[RX_BUFFER_SIZE];
+
+/* UART1 Transmit Buffer Array */
+uint8_t uart1_tx_buffer[TX_BUFFER_SIZE];
 
 /*----------------------------------------------------------------------------*/
 /* Helper functions                                                           */
@@ -262,7 +262,7 @@ static void uart_open(uart_instance_t          uart_instance,
     /* Enable UART Peripheral */
     ROM_SysCtlPeripheralEnable(uart_peripheral[uart_instance]);
 
-    ROM_UARTConfigSetExpClk(base, SysCtlClockGet(), 230400,
+    ROM_UARTConfigSetExpClk(base, SysCtlClockGet(), 460800,
                             (UART_CONFIG_PAR_NONE | UART_CONFIG_STOP_ONE |
                             UART_CONFIG_WLEN_8));
     
@@ -403,13 +403,13 @@ void uart_init(uart_services_t          *uart_services)
     for (i = 0; i < UART_COUNT; i++)
     {
         uart_info[i].rx_flag = false;
-
-        RingBufInit(&uart_info[i].tx_ringbuf_obj,
-                    &uart_info[i].tx_buffer[0],
-                    sizeof(uart_info[i].tx_buffer));
-
-        RingBufInit(&uart_info[i].rx_ringbuf_obj,
-                    &uart_info[i].rx_buffer[0],
-                    sizeof(uart_info[i].rx_buffer));
     }
+
+    RingBufInit(&uart_info[UART_CMD].tx_ringbuf_obj,
+                &uart1_tx_buffer[0],
+                sizeof(uart1_tx_buffer));
+
+    RingBufInit(&uart_info[UART_CMD].rx_ringbuf_obj,
+                &uart1_rx_buffer[0],
+                sizeof(uart1_rx_buffer));
 }

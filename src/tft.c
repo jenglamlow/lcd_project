@@ -38,12 +38,8 @@
 
 #define MIN_X               (0)
 #define MIN_Y               (0)
-#define MAX_X               (239)
-#define MAX_Y               (319)
-
-/* pin mapping for D/C tft */ 
-#define DC_PIN_BASE         GPIO_PORTE_BASE
-#define DC_PIN              GPIO_PIN_2
+#define MAX_X               (319)
+#define MAX_Y               (239)
 
 /* Command info FIFO queue size */
 #define CMD_QUEUE_SIZE      (64)
@@ -51,22 +47,29 @@
 /* Command info TFT data size */
 #define CMD_DATA_SIZE       (4096)
 
-/* Set D/C pin to high */
-#define SET_DC_PIN          SET_BITS(DC_PIN_BASE, DC_PIN)
-
-/* Set D/C pin to low */
-#define CLEAR_DC_PIN        CLEAR_BITS(DC_PIN_BASE, DC_PIN)
-
 /* pin mapping for RST tft */ 
 #define RST_PIN_BASE        GPIO_PORTE_BASE
 #define RST_PIN             GPIO_PIN_3
-
 /* Set RST pin to high */
 #define SET_RST_PIN         SET_BITS(RST_PIN_BASE, RST_PIN)
-
 /* Set RST pin to low */
 #define CLEAR_RST_PIN       CLEAR_BITS(RST_PIN_BASE, RST_PIN)
 
+/* pin mapping for CS tft */
+#define CS_PIN_BASE        GPIO_PORTA_BASE
+#define CS_PIN             GPIO_PIN_3
+/* Set CS pin to high */
+#define SET_CS_PIN         SET_BITS(CS_PIN_BASE, CS_PIN)
+/* Set CS pin to low */
+#define CLEAR_CS_PIN       CLEAR_BITS(CS_PIN_BASE, CS_PIN)
+
+/* pin mapping for D/C tft */
+#define DC_PIN_BASE         GPIO_PORTE_BASE
+#define DC_PIN              GPIO_PIN_2
+/* Set D/C pin to high */
+#define SET_DC_PIN          SET_BITS(DC_PIN_BASE, DC_PIN)
+/* Set D/C pin to low */
+#define CLEAR_DC_PIN        CLEAR_BITS(DC_PIN_BASE, DC_PIN)
 
 /*-----------------------------------------------------------------------------
  *  ILI9341 command list
@@ -136,8 +139,8 @@
 
 typedef enum
 {
-    STATE_CMD = 0,
-    STATE_DATA,
+    STATE_CMD = 0,//!< STATE_CMD
+    STATE_DATA,   //!< STATE_DATA
 } tft_send_state_t;
 
 typedef void (*tft_action_t)(void);
@@ -273,6 +276,14 @@ static void hw_init(void)
 
     CLEAR_RST_PIN;
 
+    /* Enable PortA for CS PIN */
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+
+    /* Set CS pin as output */
+    GPIOPinTypeGPIOOutput(CS_PIN_BASE, CS_PIN);
+
+    SET_CS_PIN;
+
     /* SPI module initialization */
     spi->open(SPI_TFT, spi_tx_cb);
 }
@@ -286,7 +297,11 @@ static void send_command(uint8_t cmd)
 {
     CLEAR_DC_PIN;
 
+    CLEAR_CS_PIN;
+
     spi->write(SPI_TFT, cmd);
+
+    SET_CS_PIN;
 }
 
 /**
@@ -298,7 +313,11 @@ static void send_data(uint8_t data)
 {
     SET_DC_PIN;
 
+    CLEAR_CS_PIN;
+
     spi->write(SPI_TFT, data);
+
+    SET_CS_PIN;
 }
 
 #if NON_BLOCKING
@@ -334,8 +353,12 @@ static void send_word(uint16_t word)
 
     SET_DC_PIN;
 
+    CLEAR_CS_PIN;
+
     spi->write(SPI_TFT, high_byte);
     spi->write(SPI_TFT, low_byte);
+
+    SET_CS_PIN;
 }
 
 /**
@@ -364,12 +387,6 @@ static void set_page(uint16_t StartPage,uint16_t EndPage)
     send_word(EndPage);
 }
 
-static void set_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
-{
-    set_column(x0, x1);
-    set_page(y0, y1);
-    send_command(RAMWRP);              /* Memory Write */
-}
 /**
  * @brief  set starting position of x and y
  *
@@ -521,16 +538,38 @@ static void tft_send_raw(uint8_t    cmd,
 #endif
 }
 
+static void tft_set_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
+{
+    set_column(x0, x1);
+    set_page(y0, y1);
+    send_command(RAMWRP);              /* Memory Write */
+}
+
+static void tft_start_image_transfer(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
+{
+    tft_set_area(x0, y0, x1, y1);
+    CLEAR_CS_PIN;
+    SET_DC_PIN;
+}
+
+static void tft_done_transfer(void)
+{
+    /* Set CS pin to high to indicate transfer is completed */
+    SET_CS_PIN;
+}
+
 /**
 * @brief  Clear TFT screen to all black
 */
 static void tft_clear_screen(void)
 {
-    set_area(0, 0, (TFT_HEIGHT - 1), (TFT_WIDTH - 1));
+    tft_set_area(0, 0, (TFT_HEIGHT - 1), (TFT_WIDTH - 1));
 
     SET_DC_PIN;
     
     uint32_t total_pixel = (TFT_WIDTH * TFT_HEIGHT) / 2;
+
+    CLEAR_CS_PIN;
 
     uint16_t i;
     for (i=0; i<total_pixel; i++)
@@ -540,6 +579,8 @@ static void tft_clear_screen(void)
         spi->write(SPI_TFT,0);
         spi->write(SPI_TFT,0);
     }
+
+    SET_CS_PIN;
 }
 
 /**
@@ -813,9 +854,10 @@ static void tft_fill_area(uint16_t x0, uint16_t y0,
     xy = xy * (y1 - y0 + 1);
 
     /* Set Coordinate */
-    set_area(x0, y0, x1, y1);
+    tft_set_area(x0, y0, x1, y1);
                         
     SET_DC_PIN;
+    CLEAR_CS_PIN;
 
     /* Start Filling area with color */
     uint8_t high_color = color >> 8;
@@ -825,6 +867,13 @@ static void tft_fill_area(uint16_t x0, uint16_t y0,
         spi->write(SPI_TFT, high_color);
         spi->write(SPI_TFT, low_color);
     }
+    SET_CS_PIN;
+}
+
+static void tft_direct_write_word(uint8_t high, uint8_t low)
+{
+    spi->write(SPI_TFT, high);
+    spi->write(SPI_TFT, low);
 }
 
 /**
@@ -1206,6 +1255,10 @@ void tft_init(tft_services_t *tft_services,
     tft_services->draw_char_only = tft_draw_char_only;
     tft_services->draw_string_only = tft_draw_string_only;
     tft_services->set_pixel = tft_set_pixel;
+    tft_services->set_area = tft_set_area;
+    tft_services->start_image_transfer = tft_start_image_transfer;
+    tft_services->direct_write_word = tft_direct_write_word;
+    tft_services->done_transfer = tft_done_transfer;
 #if NON_BLOCKING
     tft_services->register_done_callback = tft_register_done_callback;
 #endif

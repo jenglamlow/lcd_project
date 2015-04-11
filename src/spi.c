@@ -120,7 +120,8 @@ static const uint32_t ssi_gpio_port[] =
 /* SSI GPIO Pin Map */
 static const uint32_t ssi_gpio_pin[] = 
 {
-    GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5,
+    //GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5,
+    GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_5,
     GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3,
     GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7,
     GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3
@@ -282,7 +283,7 @@ static void spi_open(spi_instance_t spi_instance,
 
     /* Configure PORT pin muxing as SSI peripheral function */  
     ROM_GPIOPinConfigure(ssi_gpio_config[spi_instance][0]);
-    ROM_GPIOPinConfigure(ssi_gpio_config[spi_instance][1]);
+    //ROM_GPIOPinConfigure(ssi_gpio_config[spi_instance][1]);
     ROM_GPIOPinConfigure(ssi_gpio_config[spi_instance][2]);
     ROM_GPIOPinConfigure(ssi_gpio_config[spi_instance][3]);
 
@@ -304,7 +305,7 @@ static void spi_open(spi_instance_t spi_instance,
                            SysCtlClockGet(), 
                            SSI_FRF_MOTO_MODE_0,
                            SSI_MODE_MASTER, 
-                           25000000, 
+                           25000000,
                            8);
 
 #if USE_INTERRUPT

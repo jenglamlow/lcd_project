@@ -390,7 +390,9 @@ static void state_data_pass(uint8_t byte)
 
     if (current_data == cmd_info.data_size)
     {
+        current_data = 0;
         img.state = STATE_IMG_PARAM;
+        tft->done_transfer();
 
         set_state(STATE_EXPECT_ETX);
     }
@@ -453,9 +455,10 @@ static void img_action(uint8_t byte)
 
     uint16_t height = 0;
     uint16_t width = 0;
-    uint16_t color = 0;
     uint16_t x = 0;
     uint16_t y = 0;
+
+    static bool area_set = false;
 
     if (img.state == STATE_IMG_PARAM)
     {
@@ -467,12 +470,13 @@ static void img_action(uint8_t byte)
         else
         /* The 8th byte */
         {
-            /* Get Height and Width */
+            /* Get starting x and y position */
             x |= (((uint16_t)img.buffer[0]) << 8);
             x |= (((uint16_t)img.buffer[1]) & 0xFF);
             y |= (((uint16_t)img.buffer[2]) << 8);
             y |= (((uint16_t)img.buffer[3]) & 0xFF);
 
+            /* Get Height and Width */
             height |= (((uint16_t)img.buffer[4]) << 8);
             height |= (((uint16_t)img.buffer[5]) & 0xFF);
             width |= (((uint16_t)img.buffer[6]) << 8);
@@ -490,6 +494,7 @@ static void img_action(uint8_t byte)
             /* Reset buffer to store pixel data */
             img.buffer_idx = 0;
             img.pix_idx = 0;
+            area_set = false;
         }
     }
     /* STATE_IMG_PIXEL */
@@ -502,19 +507,25 @@ static void img_action(uint8_t byte)
         }
         else
         {
-            /* Get 16-bit color */
-            color |= (((uint16_t)img.buffer[0]) << 8);
-            color |= (((uint16_t)byte) & 0xFF);
-
             /* Reset buffer to store pixel data */
             img.buffer_idx = 0;
 
-            /* Start draw pixel */
-            x = (img.pix_idx % img.height) + img.x;
-            y = (img.pix_idx / img.height) + img.y;
-            tft->set_pixel(x, y, color);
+            /* Set the area to be filled */
+            if (area_set == false)
+            {
+                uint16_t x1 = img.x + img.width - 1;
+                uint16_t y1 = img.y + img.height - 1;
 
-            img.pix_idx++;
+                area_set = true;
+
+                /* Start image transaction by setting area boundary */
+                tft->start_image_transfer(img.x, img.y, y1, x1);
+            }
+            /* Transfer pixel information */
+            else
+            {
+                tft->direct_write_word(img.buffer[0], byte);
+            }
         }
     }
 }
@@ -560,23 +571,17 @@ static void str_action(void)
      */
     memcpy(&text[0], &data[STR_TEXT], text_size);
 
-    /* Set Null terminate at the last character */
+    /* Set Null termination at the last character */
     text[text_size] = 0;
 
     tft->draw_string_only(&text[0], x, y, font_size, color);
-    tft->set_pixel(10,10,RED);
-    tft->set_pixel(10,11,RED);
-    tft->set_pixel(10,12,RED);
-    tft->set_pixel(10,13,RED);
-    tft->set_pixel(10,14,RED);
-    tft->set_pixel(10,15,RED);
 }
 
 static void clr_action(void)
 {
     ASSERT(cmd_info.cmd.name == CMD_CLR);
     
-    tft->clear_screen();
+    tft->fill_area(0, 0, 319, 239, BLACK);
 }
 
 static void cmd_parser_process(uint8_t byte)

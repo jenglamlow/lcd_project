@@ -5,6 +5,7 @@
 import serial
 import numpy
 import time
+import datetime
 from PIL import Image
 from enum import Enum
 
@@ -51,6 +52,20 @@ def high_byte(value):
 
 def low_byte(value):
     return (value & 0xff)
+
+def convert_16_bit_color(r,g,b):
+    r = r >> 3
+    r = r << 6
+
+    g = g >> 2
+    r = r | g
+    r = r << 5
+
+    b = b >> 3
+    r = r | b
+
+    return r
+
 
 # =============================================================================
 #    Command Class Definition
@@ -225,18 +240,10 @@ class ImageCommand():
             g = array_1d[(3 * i) + 1]
             b = array_1d[(3 * i) + 2]
 
-            r = r >> 3
-            r = r << 6
+            color = convert_16_bit_color(r,g,b)
 
-            g = g >> 2
-            r = r | g
-            r = r << 5
-
-            b = b >> 3
-            r = r | b
-
-            param.append(high_byte(r))
-            param.append(low_byte(r))
+            param.append(high_byte(color))
+            param.append(low_byte(color))
 
         self._command.param = param
 
@@ -275,7 +282,10 @@ class Ftdi:
             print (command._command.packet[i], ",", end='')
         print ('image pixel...', ',', end='')
         print (command._command.packet[-1])
+        start_time = datetime.datetime.now()
         self.ser.write(bytes(command._command.packet))
+        elapsed = datetime.datetime.now() - start_time
+        print (elapsed)
 
     def test_write(self):
         test_data = [2, 3, 0, 0, 3]
@@ -290,7 +300,7 @@ class Ftdi:
 
 # Device FTDI class initialisation
 # dev = Ftdi('/dev/ttyUSB0', 115200)
-dev = Ftdi('COM3', 230400)
+dev = Ftdi('COM3', 460800)
 
 # Command Class Initialisation
 clear_command = ClearCommand()
@@ -303,7 +313,7 @@ string_command = StringCommand([100, 100], 3, Color.yellow, "HELLO")
 
 string2_command = StringCommand([10, 200], 3, Color.green, "TESTING")
 
-image_command = ImageCommand([0, 0], "test.bmp")
+image_command = ImageCommand([0, 0], "paint.bmp")
 
 # =============================================================================
 #    Action Function

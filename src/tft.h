@@ -116,6 +116,14 @@ typedef struct
 
     void (*set_pixel)(uint16_t x, uint16_t y, uint16_t color);
 
+    void (*set_area)(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
+
+    void (*start_image_transfer)(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
+
+    void (*direct_write_word)(uint8_t high, uint8_t low);
+
+    void (*done_transfer)(void);
+
     void (*running_animation)(void);
 } tft_services_t;
 
