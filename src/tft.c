@@ -554,7 +554,14 @@ static void tft_set_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 
 static void tft_start_image_transfer(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
-    tft_set_area(x0, y0, x1, y1);
+    if ((tft_info.orientation == ORIENT_H) || (tft_info.orientation == ORIENT_H_I))
+    {
+        tft_set_area(x0, y0, x1, y1);
+    }
+    else
+    {
+        tft_set_area(x0, y0, y1, x1);
+    }
     CLEAR_CS_PIN;
     SET_DC_PIN;
 }
@@ -714,7 +721,7 @@ static void tft_start(void)
     send_command(ILIVC2);    
     send_data(0x86);     
 
-    tft_set_orientation(ORIENT_H);
+    tft_set_orientation(ORIENT_V);
 
     send_command(COLMOD);          /* Pixel Format Set */
     send_data(0x55);               /* 16 bits/pixel */
