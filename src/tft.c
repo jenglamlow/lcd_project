@@ -654,6 +654,15 @@ static void tft_clear_screen(void)
     tft_fill_area(MIN_X, MIN_Y, tft_info.max_x, tft_info.max_y, BLACK);
 }
 
+static void tft_reset(void)
+{
+    /* Reset TFT Pin */
+    CLEAR_RST_PIN;
+    delay_ms(10);
+    SET_RST_PIN;
+    delay_ms(500);
+}
+
 /**
  * @brief  TFT initialization (Hardware)
  */
@@ -666,10 +675,7 @@ static void tft_start(void)
     spi->write(SPI_TFT,0);        
 
     /* Reset TFT Pin */
-    CLEAR_RST_PIN;
-    delay_ms(10);
-    SET_RST_PIN;
-    delay_ms(500);
+    tft_reset();
 
     /* Software Reset */
     tft_send_command(SWRESET);
@@ -1274,6 +1280,7 @@ void tft_init(tft_services_t *tft_services,
     tft_services->send_raw = tft_send_raw;
     tft_services->send_command = tft_send_command;
     tft_services->send_data = tft_send_data;
+    tft_services->reset = tft_reset;
 #if NON_BLOCKING
     tft_services->register_done_callback = tft_register_done_callback;
 #endif

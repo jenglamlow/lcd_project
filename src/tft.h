@@ -78,6 +78,7 @@ typedef struct
     void (*register_done_callback)(tft_done_cb_t tft_done_cb);
 #endif
     void (*start)(void);
+    void (*reset)(void);
     void (*clear_screen)(void);
     void (*fill_area)(uint16_t x0, uint16_t y0, 
                       uint16_t x1, uint16_t y1, 
