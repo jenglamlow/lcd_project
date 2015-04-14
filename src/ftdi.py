@@ -22,6 +22,7 @@ CMD_BLK = 0
 CMD_IMG = 1
 CMD_STR = 2
 CMD_CLR = 3
+CMD_RAW = 4
 
 
 # Color Definition
@@ -53,7 +54,8 @@ def high_byte(value):
 def low_byte(value):
     return (value & 0xff)
 
-def convert_16_bit_color(r,g,b):
+
+def convert_16_bit_color(r, g, b):
     r = r >> 3
     r = r << 6
 
@@ -240,7 +242,7 @@ class ImageCommand():
             g = array_1d[(3 * i) + 1]
             b = array_1d[(3 * i) + 2]
 
-            color = convert_16_bit_color(r,g,b)
+            color = convert_16_bit_color(r, g, b)
 
             param.append(high_byte(color))
             param.append(low_byte(color))
@@ -251,6 +253,29 @@ class ImageCommand():
         self._command = Command()
 
         ImageCommand.set_param(self, pos, img)
+
+
+class RawCommand():
+
+    def set_param(self, cmd, data):
+        self._cmd = cmd
+        self._data = data
+
+        param = [CMD_RAW]
+
+        # RAW Command
+        param.append(cmd)
+
+        # RAW Command Data
+        for i in range(len(data)):
+            param.append(data[i])
+
+        self._command.param = param
+
+    def __init__(self, cmd, data):
+        self._command = Command()
+
+        RawCommand.set_param(self, cmd, data)
 
 
 # =============================================================================
@@ -270,19 +295,16 @@ class Ftdi:
     def print_info(self, command):
         print ("")
         print ("Sending Command :", command._command.info)
-        print ("Packet :", command._command.packet)
+        if (len(command._command.packet) < 50):
+            print ("Packet :", command._command.packet)
+        else:
+            print ("Packet :", command._command.packet[:50], ",", end='')
+            print ('data...', ',', end='')
+            print (command._command.packet[-1])
 
     def send(self, command):
-        self.print_info(command)
-        self.ser.write(bytes(command._command.packet))
-
-    def send_image(self, command):
-        print ("Sending image with packet:")
-        for i in range(14):
-            print (command._command.packet[i], ",", end='')
-        print ('image pixel...', ',', end='')
-        print (command._command.packet[-1])
         start_time = datetime.datetime.now()
+        self.print_info(command)
         self.ser.write(bytes(command._command.packet))
         elapsed = datetime.datetime.now() - start_time
         print (elapsed)
@@ -313,7 +335,10 @@ string_command = StringCommand([100, 100], 3, Color.yellow, "HELLO")
 
 string2_command = StringCommand([10, 200], 3, Color.green, "TESTING")
 
-image_command = ImageCommand([0, 0], "paint.bmp")
+image_command = ImageCommand([0, 0], "test.bmp")
+
+data_list = []
+raw_command = RawCommand(0x01, data_list)
 
 # =============================================================================
 #    Action Function
@@ -335,7 +360,22 @@ def string_action():
 
 
 def image_action():
-    dev.send_image(image_command)
+    dev.send(image_command)
+
+
+def raw_action():
+    data = [0, 0, 0, 100]
+    raw_command.set_param(0x2A, data)
+    dev.send(raw_command)
+    data = [0, 0, 0, 100]
+    raw_command.set_param(0x2B, data)
+    dev.send(raw_command)
+    data = []
+    for i in range(10000):
+        data.append(0xF8)
+        data.append(0x00)
+    raw_command.set_param(0x2C, data)
+    dev.send(raw_command)
 
 
 def test_action():
@@ -350,7 +390,7 @@ def test_action():
 
     clear_action()
     time.sleep(0.5)
-    
+
     image_action()
 
 
@@ -363,6 +403,7 @@ action_map = {
     'b': block_action,
     't': string_action,
     'i': image_action,
+    'r': raw_action,
     '`': test_action,
 }
 
@@ -380,6 +421,7 @@ while (True):
     print ("b - Send Block")
     print ("t - Send Text")
     print ("i - Send Image")
+    print ("r - Send Raw")
     print ("` - Test Program")
     print ("x - Exit")
 

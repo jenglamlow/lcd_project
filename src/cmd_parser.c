@@ -123,8 +123,14 @@ typedef struct
 typedef enum
 {
     STATE_IMG_PARAM,
-    STATE_IMG_PIXEL,
+    STATE_IMG_PIXEL
 } img_state_t;
+
+typedef enum
+{
+    STATE_SEND_CMD,
+    STATE_SEND_DATA
+} raw_state_t;
 
 typedef struct
 {
@@ -157,11 +163,12 @@ static void state_data_pass(uint8_t byte);
 static void state_etx(uint8_t byte);
 
 /* Received Command Action */
+static void nop_action(void);
 static void blk_action(void);
 static void img_action(uint8_t byte);
 static void str_action(void);
 static void clr_action(void);
-static void raw_action(void);
+static void raw_action(uint8_t byte);
 
 /* Command Table to store command list with expected minimum data size */
 static const cmd_definition_t cmd_table[MAX_CMD] = 
@@ -176,10 +183,10 @@ static const cmd_definition_t cmd_table[MAX_CMD] =
 static const cmd_invoke_action_t cmd_invoke[] =
 {
     /* CMD_BLK */   blk_action,
-    /* CMD_IMG */   0,
+    /* CMD_IMG */   nop_action,
     /* CMD_STR */   str_action,
     /* CMD_CLR */   clr_action,
-    /* CMD_RAW */   raw_action
+    /* CMD_RAW */   nop_action
 };
 
 /* Table storing command state function */
@@ -204,6 +211,7 @@ static char text[256] = "";
 /* Command State */
 static cmd_info_t  cmd_info;
 static img_t       img;
+static raw_state_t raw_state;
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -327,22 +335,14 @@ static void state_size(uint8_t byte)
             if (data_size >= cmd_info.cmd.size)
             {
                 /* If command is IMG */
-                if (cmd_info.cmd.name == CMD_IMG)
+                if ((cmd_info.cmd.name == CMD_IMG) ||
+                    (cmd_info.cmd.name == CMD_RAW))
                 {
                     set_state(STATE_EXPECT_DATA_PASS);
                 }
                 else
                 {
-                    /* Store into buffer if data size is smaller than MAX size */
-                    if (data_size < MSG_SIZE)
-                    {
-                        set_state(STATE_EXPECT_DATA_STORE);
-                    }
-                    /* If exceed, pass the data instead of storing */
-                    else
-                    {
-                        set_state(STATE_EXPECT_DATA_PASS);
-                    }
+                    set_state(STATE_EXPECT_DATA_STORE);
                 }
             }
             else
@@ -382,17 +382,34 @@ static void state_data_pass(uint8_t byte)
 
     current_data++;
 
+    /* CMD_IMG */
     if (cmd_info.cmd.name == CMD_IMG)
     {
         /* Execute image action */
         img_action(byte);
     }
+    /* CMD_RAW */
+    else
+    {
+        /* Execute raw action */
+        raw_action(byte);
+    }
 
     if (current_data == cmd_info.data_size)
     {
         current_data = 0;
-        img.state = STATE_IMG_PARAM;
-        tft->done_transfer();
+
+        /* CMD_IMG */
+        if (cmd_info.cmd.name == CMD_IMG)
+        {
+            img.state = STATE_IMG_PARAM;
+            tft->done_transfer();
+        }
+        /* CMD_RAW */
+        else
+        {
+            raw_state = STATE_SEND_CMD;
+        }
 
         set_state(STATE_EXPECT_ETX);
     }
@@ -404,17 +421,18 @@ static void state_etx(uint8_t byte)
     /* Full packet found */
     if (byte == CMD_ETX)
     {
-        /* Check whether is Command IMG */
-        if (cmd_info.cmd.name != CMD_IMG)
-        {
-            /* Execute action */
-            cmd_invoke[(uint8_t)(cmd_info.cmd.name)]();
-        }
+        /* Execute action */
+        cmd_invoke[(uint8_t)(cmd_info.cmd.name)]();
     }
     
 
     /* Reset back to STATE_EXPECT_STX for new message packet */
     set_state(STATE_EXPECT_STX);
+}
+
+static void nop_action(void)
+{
+    /* Do nothing */
 }
 
 static void blk_action(void)
@@ -458,9 +476,17 @@ static void img_action(uint8_t byte)
     uint16_t x = 0;
     uint16_t y = 0;
 
-    static bool area_set = false;
-
-    if (img.state == STATE_IMG_PARAM)
+    /*
+     * Sending Image Pixel
+     * Place it as the first condition for better optimization
+     */
+    if (img.state == STATE_IMG_PIXEL)
+    {
+        /* Transfer pixel information */
+        tft->send_data_only(byte);
+    }
+    /* Getting Image Parameter */
+    else
     {
         /* Buffer the first 7 byte (MSB first) */
         if (img.buffer_idx < 7)
@@ -482,7 +508,7 @@ static void img_action(uint8_t byte)
             width |= (((uint16_t)img.buffer[6]) << 8);
             width |= (((uint16_t)byte) & 0xFF);
 
-            /* Change image state to PIXEL */
+            /* Change to Image Pixel State */
             img.state = STATE_IMG_PIXEL;
 
             /* Store the param into img structure */
@@ -494,49 +520,34 @@ static void img_action(uint8_t byte)
             /* Reset buffer to store pixel data */
             img.buffer_idx = 0;
             img.pix_idx = 0;
-            area_set = false;
-        }
-    }
-    /* STATE_IMG_PIXEL */
-    else
-    {
-        /* Color in 16-bit, buffer the high byte first */
-        if (img.buffer_idx < 1)
-        {
-            img.buffer[img.buffer_idx++] = byte;
-        }
-        else
-        {
-            /* Reset buffer to store pixel data */
-            img.buffer_idx = 0;
 
             /* Set the area to be filled */
-            if (area_set == false)
-            {
-                uint16_t x1 = img.x + img.width - 1;
-                uint16_t y1 = img.y + img.height - 1;
+            uint16_t x1 = img.x + img.width - 1;
+            uint16_t y1 = img.y + img.height - 1;
 
-                area_set = true;
+            /* Start image transaction by setting area boundary */
+            tft->start_image_transfer(img.x, img.y, x1, y1);
 
-                /* Start image transaction by setting area boundary */
-                tft->start_image_transfer(img.x, img.y, x1, y1);
-            }
-            /* Transfer pixel information */
-            else
-            {
-                tft->direct_write_word(img.buffer[0], byte);
-            }
         }
     }
 }
 
-static void raw_action(void)
+static void raw_action(uint8_t byte)
 {
     /* RAW, data... */
+    if (raw_state == STATE_SEND_CMD)
+    {
+        raw_state = STATE_SEND_DATA;
 
-    RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
-
-    tft->send_raw(data[0], &data[1], (cmd_info.data_size - 1));
+        /* Transfer raw command */
+        tft->send_command(byte);
+    }
+    /* Data Byte */
+    else
+    {
+        /* Transfer raw data*/
+        tft->send_data(byte);
+    }
 
 }
 
@@ -671,6 +682,8 @@ void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
     img.state = STATE_IMG_PARAM;
     img.buffer_idx = 0;
     img.pix_idx = 0;
+
+    raw_state = STATE_SEND_CMD;
 
     RingBufInit(&cmd_info.data_ringbuf_obj,
                 &cmd_info.buffer[0],

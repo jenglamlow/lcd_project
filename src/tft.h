@@ -125,7 +125,11 @@ typedef struct
 
     void (*start_image_transfer)(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1);
 
-    void (*direct_write_word)(uint8_t high, uint8_t low);
+    void (*send_data_only)(uint8_t byte);
+
+    void (*send_command)(uint8_t cmd);
+
+    void (*send_data)(uint8_t data);
 
     void (*done_transfer)(void);
 

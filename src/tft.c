@@ -198,9 +198,6 @@ static cmd_queue_t      cmd_queue;
 
 /* Function Prototype */
 static void spi_tx_cb(void);
-static void tft_send_raw(uint8_t    cmd,
-                         uint8_t*   data,
-                         uint32_t   size);
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -300,7 +297,7 @@ static void hw_init(void)
  *
  * @param data: Command (8-bit) 
  */
-static void send_command(uint8_t cmd)
+static void tft_send_command(uint8_t cmd)
 {
     CLEAR_DC_PIN;
 
@@ -316,7 +313,7 @@ static void send_command(uint8_t cmd)
  *
  * @param data: data (8-bit)
  */
-static void send_data(uint8_t data)
+static void tft_send_data(uint8_t data)
 {
     SET_DC_PIN;
 
@@ -376,7 +373,7 @@ static void send_word(uint16_t word)
  */
 static void set_column(uint16_t start_column,uint16_t end_column)
 {
-    send_command(CASETP);              /* Column Address Set */
+    tft_send_command(CASETP);              /* Column Address Set */
     send_word(start_column);
     send_word(end_column);
 }
@@ -389,7 +386,7 @@ static void set_column(uint16_t start_column,uint16_t end_column)
  */
 static void set_page(uint16_t StartPage,uint16_t EndPage)
 {
-    send_command(PASETP);              /* Page Address Set */
+    tft_send_command(PASETP);              /* Page Address Set */
     send_word(StartPage);
     send_word(EndPage);
 }
@@ -404,7 +401,7 @@ static void set_xy(uint16_t x, uint16_t y)
 {
     set_column(x, x);
     set_page(y, y);
-    send_command(RAMWRP);              /* Memory Write */
+    tft_send_command(RAMWRP);              /* Memory Write */
 }
 /*-----------------------------------------------------------------------------
  *  Event call-backs
@@ -537,10 +534,10 @@ static void tft_send_raw(uint8_t    cmd,
 #else
     uint32_t i;
 
-    send_command(cmd);
+    tft_send_command(cmd);
     for (i = 0; i < size; i++)
     {
-        send_data(data[i]);
+        tft_send_data(data[i]);
     }
 #endif
 }
@@ -549,7 +546,7 @@ static void tft_set_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
     set_column(x0, x1);
     set_page(y0, y1);
-    send_command(RAMWRP);              /* Memory Write */
+    tft_send_command(RAMWRP);              /* Memory Write */
 }
 
 static void tft_start_image_transfer(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
@@ -574,8 +571,8 @@ static void tft_done_transfer(void)
 
 static void tft_set_orientation(uint8_t orientation)
 {
-    send_command(MADCTL);       /* Memory Access Control */
-    send_data(orientation);     /* Refresh Order - BGR colour filter */
+    tft_send_command(MADCTL);       /* Memory Access Control */
+    tft_send_data(orientation);     /* Refresh Order - BGR colour filter */
 
     tft_info.orientation = orientation;
     if ((orientation == ORIENT_H) || (orientation == ORIENT_H_I))
@@ -675,113 +672,113 @@ static void tft_start(void)
     delay_ms(500);
 
     /* Software Reset */
-    send_command(SWRESET);
+    tft_send_command(SWRESET);
     delay_ms(200);
 
-    send_command(PWRCTRLA);        /* Power Control */
-    send_data(0x39); 
-    send_data(0x2C); 
-    send_data(0x00); 
-    send_data(0x34); 
-    send_data(0x02); 
+    tft_send_command(PWRCTRLA);        /* Power Control */
+    tft_send_data(0x39);
+    tft_send_data(0x2C);
+    tft_send_data(0x00);
+    tft_send_data(0x34);
+    tft_send_data(0x02);
 
-    send_command(PWRCTRLB);  
-    send_data(0x00); 
-    send_data(0XC1); 
-    send_data(0X30); 
+    tft_send_command(PWRCTRLB);
+    tft_send_data(0x00);
+    tft_send_data(0XC1);
+    tft_send_data(0X30);
 
-    send_command(DTCTRLA1);        /* Driver Timing Control */
-    send_data(0x85); 
-    send_data(0x00); 
-    send_data(0x78); 
+    tft_send_command(DTCTRLA1);        /* Driver Timing Control */
+    tft_send_data(0x85);
+    tft_send_data(0x00);
+    tft_send_data(0x78);
 
-    send_command(DTCTRLB);  
-    send_data(0x00); 
-    send_data(0x00); 
+    tft_send_command(DTCTRLB);
+    tft_send_data(0x00);
+    tft_send_data(0x00);
 
-    send_command(POSC);            /* Power On Sequence Control */
-    send_data(0x64); 
-    send_data(0x03); 
-    send_data(0X12); 
-    send_data(0X81); 
+    tft_send_command(POSC);            /* Power On Sequence Control */
+    tft_send_data(0x64);
+    tft_send_data(0x03);
+    tft_send_data(0X12);
+    tft_send_data(0X81);
 
-    send_command(PRC);             /* Pump Ratio Control */
-    send_data(0x20); 
+    tft_send_command(PRC);             /* Pump Ratio Control */
+    tft_send_data(0x20);
 
-    send_command(ILIPC1);          /* power control */
-    send_data(0x23);    
+    tft_send_command(ILIPC1);          /* power control */
+    tft_send_data(0x23);
 
-    send_command(ILIPC2);       
-    send_data(0x10);    
+    tft_send_command(ILIPC2);
+    tft_send_data(0x10);
 
-    send_command(ILIVC1);          /* VCOM Control */
-    send_data(0x3e);    
-    send_data(0x28); 
+    tft_send_command(ILIVC1);          /* VCOM Control */
+    tft_send_data(0x3e);
+    tft_send_data(0x28);
 
-    send_command(ILIVC2);    
-    send_data(0x86);     
+    tft_send_command(ILIVC2);
+    tft_send_data(0x86);
 
     tft_set_orientation(ORIENT_V);
 
-    send_command(COLMOD);          /* Pixel Format Set */
-    send_data(0x55);               /* 16 bits/pixel */
+    tft_send_command(COLMOD);          /* Pixel Format Set */
+    tft_send_data(0x55);               /* 16 bits/pixel */
 
-    send_command(ILIFCNM);         /* Frame Rate Control */
-    send_data(0x00);               /* Fosc */
-    send_data(0x10);               /* 16 clocks for line period */
+    tft_send_command(ILIFCNM);         /* Frame Rate Control */
+    tft_send_data(0x00);               /* Fosc */
+    tft_send_data(0x10);               /* 16 clocks for line period */
 
-    send_command(ILIDFC);       /* Display Function Control */
-    send_data(0x08);               /* Interval Scan */
-    send_data(0x82);               /* Normally Black , Scan cycle interval */
-    send_data(0x27);  
+    tft_send_command(ILIDFC);       /* Display Function Control */
+    tft_send_data(0x08);               /* Interval Scan */
+    tft_send_data(0x82);               /* Normally Black , Scan cycle interval */
+    tft_send_data(0x27);
 
-    send_command(ILIGFD);       /* 3Gamma Function */
-    send_data(0x00);               /* Disable 3G */
+    tft_send_command(ILIGFD);       /* 3Gamma Function */
+    tft_send_data(0x00);               /* Disable 3G */
 
-    send_command(ILIGS);           /* Gamma Set */
-    send_data(0x01);               /* Gamma curve */
+    tft_send_command(ILIGS);           /* Gamma Set */
+    tft_send_data(0x01);               /* Gamma curve */
 
-    send_command(ILIPGC);       /* Positive Gamma Correction */
-    send_data(0x0F); 
-    send_data(0x31); 
-    send_data(0x2B); 
-    send_data(0x0C); 
-    send_data(0x0E); 
-    send_data(0x08); 
-    send_data(0x4E); 
-    send_data(0xF1); 
-    send_data(0x37); 
-    send_data(0x07); 
-    send_data(0x10); 
-    send_data(0x03); 
-    send_data(0x0E); 
-    send_data(0x09); 
-    send_data(0x00); 
+    tft_send_command(ILIPGC);       /* Positive Gamma Correction */
+    tft_send_data(0x0F);
+    tft_send_data(0x31);
+    tft_send_data(0x2B);
+    tft_send_data(0x0C);
+    tft_send_data(0x0E);
+    tft_send_data(0x08);
+    tft_send_data(0x4E);
+    tft_send_data(0xF1);
+    tft_send_data(0x37);
+    tft_send_data(0x07);
+    tft_send_data(0x10);
+    tft_send_data(0x03);
+    tft_send_data(0x0E);
+    tft_send_data(0x09);
+    tft_send_data(0x00);
 
-    send_command(ILINGC);       /* Negative Gamma Correction */
-    send_data(0x00); 
-    send_data(0x0E); 
-    send_data(0x14); 
-    send_data(0x03); 
-    send_data(0x11); 
-    send_data(0x07); 
-    send_data(0x31); 
-    send_data(0xC1); 
-    send_data(0x48); 
-    send_data(0x08); 
-    send_data(0x0F); 
-    send_data(0x0C); 
-    send_data(0x31); 
-    send_data(0x36); 
-    send_data(0x0F); 
+    tft_send_command(ILINGC);       /* Negative Gamma Correction */
+    tft_send_data(0x00);
+    tft_send_data(0x0E);
+    tft_send_data(0x14);
+    tft_send_data(0x03);
+    tft_send_data(0x11);
+    tft_send_data(0x07);
+    tft_send_data(0x31);
+    tft_send_data(0xC1);
+    tft_send_data(0x48);
+    tft_send_data(0x08);
+    tft_send_data(0x0F);
+    tft_send_data(0x0C);
+    tft_send_data(0x31);
+    tft_send_data(0x36);
+    tft_send_data(0x0F);
 
-    send_command(SLEEPOUT);        /* Turn off Sleep Mode */
+    tft_send_command(SLEEPOUT);        /* Turn off Sleep Mode */
     delay_ms(120); 
 
-    send_command(DISPON);          /* Display On */
+    tft_send_command(DISPON);          /* Display On */
 
     /* Memory Write - reset to Start Column/Start Page position */
-    send_command(RAMWRP);          
+    tft_send_command(RAMWRP);
     
     tft_clear_screen();
 }
@@ -814,7 +811,7 @@ static void tft_draw_horizontal_line(uint16_t x, uint16_t y,
 {
     set_column(x, (x + length));
     set_page(y, y);
-    send_command(RAMWRP);              /* Memory Write */
+    tft_send_command(RAMWRP);              /* Memory Write */
 
     uint16_t i;
     for(i = 0; i < length; i++)
@@ -835,7 +832,7 @@ static void tft_draw_vertical_line(uint16_t x, uint16_t y,
 {
     set_column(x, x);
     set_page(y, (y + length));
-    send_command(RAMWRP);              /* Memory Write */
+    tft_send_command(RAMWRP);              /* Memory Write */
 
     uint16_t i;
     for(i = 0; i < length; i++)
@@ -885,10 +882,9 @@ static void tft_draw_line(uint16_t x0, uint16_t y0,
     } 
 }
 
-static void tft_direct_write_word(uint8_t high, uint8_t low)
+static void tft_send_data_only(uint8_t byte)
 {
-    spi->write(SPI_TFT, high);
-    spi->write(SPI_TFT, low);
+    spi->write(SPI_TFT, byte);
 }
 
 /**
@@ -1272,10 +1268,12 @@ void tft_init(tft_services_t *tft_services,
     tft_services->set_pixel = tft_set_pixel;
     tft_services->set_area = tft_set_area;
     tft_services->start_image_transfer = tft_start_image_transfer;
-    tft_services->direct_write_word = tft_direct_write_word;
+    tft_services->send_data_only = tft_send_data_only;
     tft_services->done_transfer = tft_done_transfer;
     tft_services->set_orientation = tft_set_orientation;
     tft_services->send_raw = tft_send_raw;
+    tft_services->send_command = tft_send_command;
+    tft_services->send_data = tft_send_data;
 #if NON_BLOCKING
     tft_services->register_done_callback = tft_register_done_callback;
 #endif
