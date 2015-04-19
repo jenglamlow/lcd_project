@@ -43,23 +43,15 @@
  *  Services
  *-----------------------------------------------------------------------------*/
 
-typedef struct
-{
+void cmd_parser_start(void);
 
-    void (*process)(uint8_t byte);
+void cmd_parser_stop(void);
 
-    void (*start)(void);
-
-    void (*stop)(void);
-    
-} cmd_parser_services_t;
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
-void cmd_parser_init(cmd_parser_services_t*   cmd_parser_services,
-                     uart_services_t*         uart_services,
-                     tft_services_t*          tft_services);
+void cmd_parser_init(void);
 
 #endif
 

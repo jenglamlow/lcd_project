@@ -28,6 +28,7 @@
 #include "spi.h"
 #include "tft.h"
 #include "uart.h"
+#include "led.h"
 #include "cmd_parser.h"
 
 /*-----------------------------------------------------------------------------
@@ -74,12 +75,6 @@ typedef struct
 /*-----------------------------------------------------------------------------
  *  Private Data
  *-----------------------------------------------------------------------------*/
-/* Service Initialization */
-static spi_services_t spi;
-static tft_services_t tft;
-static uart_services_t uart;
-static cmd_parser_services_t cmd_parser;
-
 static main_info_t main_info;
 
 static void send_tft(main_info_t *info);
@@ -124,8 +119,10 @@ void __error__(char *pcFilename, unsigned long ulLine)
  */
 static void peripheral_init(void)
 {
-    tft.start();
-    cmd_parser.start();
+    /* Delay to allow voltage startup sequence */
+    delay_ms(2000);
+    tft_start();
+    cmd_parser_start();
 }
 /**
  * @brief  Component services initialisation
@@ -133,10 +130,11 @@ static void peripheral_init(void)
 static void service_init(void)
 {
     /* Initialize SPI Component */
-    spi_init(&spi);
-    tft_init(&tft, &spi);
-    uart_init(&uart);
-    cmd_parser_init(&cmd_parser, &uart, &tft);
+    spi_init();
+    tft_init();
+    uart_init();
+    cmd_parser_init();
+    led_init();
 }
 
 /**
@@ -238,12 +236,16 @@ int main(void)
     cpu_clock_init();
     peripheral_init();
 
-    tft.test();
+    //led.start();
+    tft_clear_screen();
+    tft_draw_string_only("AGITO", 30, 100, 6, GREEN);
+    tft_draw_string_only("TECH", 50, 170, 6, GREEN);
+    //tft_test();
 
     //spi.write_non_blocking(SPI_TFT, &write_data[0], sizeof(write_data));
 
 #if 0
-    tft.send_raw('A', &write_data[0], 0);
+    tft.send_raw('A', &write_data[0s], 0);
     tft.send_raw('B', &write_data[0], sizeof(write_data));
     tft.send_raw('C', &write_data[0], 0);
     tft.send_raw('D', &write_data2[0], sizeof(write_data2));
@@ -257,6 +259,7 @@ int main(void)
         /* uart.write(UART_CMD, &write_data[0], sizeof(write_data)); */
 
         /* Round Robin Task Scheduler */
-        uart.task();
+        uart_task();
+        //led_task();
     }
 }

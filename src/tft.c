@@ -36,6 +36,7 @@
 #define TFT_HEIGHT          (320)
 #define TFT_WIDTH           (240)
 
+/* Maximum and Minimum X & Y value */
 #define MIN_X               (0)
 #define MIN_Y               (0)
 #define MAX_X               (319)
@@ -139,8 +140,8 @@
 
 typedef enum
 {
-    STATE_CMD = 0,//!< STATE_CMD
-    STATE_DATA,   //!< STATE_DATA
+    STATE_CMD = 0,
+    STATE_DATA,
 } tft_send_state_t;
 
 typedef void (*tft_action_t)(void);
@@ -190,7 +191,6 @@ typedef struct
  *  Private Data
  *-----------------------------------------------------------------------------*/
 
-static spi_services_t   *spi;
 static tft_info_t       tft_info;
 #if NON_BLOCKING
 static cmd_queue_t      cmd_queue;
@@ -289,7 +289,7 @@ static void hw_init(void)
     SET_CS_PIN;
 
     /* SPI module initialization */
-    spi->open(SPI_TFT, spi_tx_cb);
+    spi_open(SPI_TFT, spi_tx_cb);
 }
 
 /**
@@ -297,13 +297,13 @@ static void hw_init(void)
  *
  * @param data: Command (8-bit) 
  */
-static void tft_send_command(uint8_t cmd)
+void tft_send_command(uint8_t cmd)
 {
     CLEAR_DC_PIN;
 
     CLEAR_CS_PIN;
 
-    spi->write(SPI_TFT, cmd);
+    spi_write(SPI_TFT, cmd);
 
     SET_CS_PIN;
 }
@@ -313,13 +313,13 @@ static void tft_send_command(uint8_t cmd)
  *
  * @param data: data (8-bit)
  */
-static void tft_send_data(uint8_t data)
+void tft_send_data(uint8_t data)
 {
     SET_DC_PIN;
 
     CLEAR_CS_PIN;
 
-    spi->write(SPI_TFT, data);
+    spi_write(SPI_TFT, data);
 
     SET_CS_PIN;
 }
@@ -341,7 +341,7 @@ static void send_command_struct(tft_cmd_info_t* cmd_info)
         tft_info.send_state = STATE_CMD;
     }
 
-    spi->write_non_blocking(SPI_TFT, &cmd_info->cmd, 1);
+    spi_write_non_blocking(SPI_TFT, &cmd_info->cmd, 1);
 }
 #endif
 
@@ -359,8 +359,8 @@ static void send_word(uint16_t word)
 
     CLEAR_CS_PIN;
 
-    spi->write(SPI_TFT, high_byte);
-    spi->write(SPI_TFT, low_byte);
+    spi_write(SPI_TFT, high_byte);
+    spi_write(SPI_TFT, low_byte);
 
     SET_CS_PIN;
 }
@@ -459,7 +459,7 @@ static void tft_state_data(void)
             RingBufRead(&tft_info.data_ringbuf_obj, &data[0], read_size);
         }
 
-        spi->write_non_blocking(SPI_TFT, &data[0], size);
+        spi_write_non_blocking(SPI_TFT, &data[0], size);
         size -= read_size;
     }
 
@@ -496,9 +496,9 @@ static void tft_register_done_callback(tft_done_cb_t tft_done_cb)
 }
 #endif
 
-static void tft_send_raw(uint8_t    cmd,
-                         uint8_t*   data,
-                         uint32_t   size)
+void tft_send_raw(uint8_t    cmd,
+                  uint8_t*   data,
+                  uint32_t   size)
 {
 #if NON_BLOCKING
     /* Buffer the raw command */
@@ -542,14 +542,14 @@ static void tft_send_raw(uint8_t    cmd,
 #endif
 }
 
-static void tft_set_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
+void tft_set_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
     set_column(x0, x1);
     set_page(y0, y1);
     tft_send_command(RAMWRP);              /* Memory Write */
 }
 
-static void tft_start_image_transfer(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
+void tft_start_image_transfer(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
     if ((tft_info.orientation == ORIENT_H) || (tft_info.orientation == ORIENT_H_I))
     {
@@ -563,13 +563,13 @@ static void tft_start_image_transfer(uint16_t x0, uint16_t y0, uint16_t x1, uint
     SET_DC_PIN;
 }
 
-static void tft_done_transfer(void)
+void tft_done_transfer(void)
 {
     /* Set CS pin to high to indicate transfer is completed */
     SET_CS_PIN;
 }
 
-static void tft_set_orientation(uint8_t orientation)
+void tft_set_orientation(uint8_t orientation)
 {
     tft_send_command(MADCTL);       /* Memory Access Control */
     tft_send_data(orientation);     /* Refresh Order - BGR colour filter */
@@ -597,9 +597,9 @@ static void tft_set_orientation(uint8_t orientation)
  * @param y1: Bottom right y coordinate
  * @param color: Refer color macro
  */
-static void tft_fill_area(uint16_t x0, uint16_t y0,
-                          uint16_t x1, uint16_t y1,
-                          uint16_t color)
+void tft_fill_area(uint16_t x0, uint16_t y0,
+                   uint16_t x1, uint16_t y1,
+                   uint16_t color)
 {
     uint32_t xy=0;
     uint32_t i=0;
@@ -640,8 +640,8 @@ static void tft_fill_area(uint16_t x0, uint16_t y0,
     uint8_t low_color = color & 0xff;
     for(i=0; i < xy; i++)
     {
-        spi->write(SPI_TFT, high_color);
-        spi->write(SPI_TFT, low_color);
+        spi_write(SPI_TFT, high_color);
+        spi_write(SPI_TFT, low_color);
     }
     SET_CS_PIN;
 }
@@ -649,12 +649,12 @@ static void tft_fill_area(uint16_t x0, uint16_t y0,
 /**
 * @brief  Clear TFT screen to all black
 */
-static void tft_clear_screen(void)
+void tft_clear_screen(void)
 {
     tft_fill_area(MIN_X, MIN_Y, tft_info.max_x, tft_info.max_y, BLACK);
 }
 
-static void tft_reset(void)
+void tft_reset(void)
 {
     /* Reset TFT Pin */
     CLEAR_RST_PIN;
@@ -666,13 +666,13 @@ static void tft_reset(void)
 /**
  * @brief  TFT initialization (Hardware)
  */
-static void tft_start(void)
+void tft_start(void)
 {
     /* Initialize Hardware I/O for TFT */
     hw_init();
 
     /* strawman transfer */
-    spi->write(SPI_TFT,0);        
+    spi_write(SPI_TFT,0);
 
     /* Reset TFT Pin */
     tft_reset();
@@ -797,7 +797,7 @@ static void tft_start(void)
  * @param y: Y coordinate
  * @param color: refer to COLOR macro
  */
-static void tft_set_pixel(uint16_t x, uint16_t y, uint16_t color)
+void tft_set_pixel(uint16_t x, uint16_t y, uint16_t color)
 {
     set_xy(x,y);
     send_word(color);
@@ -811,9 +811,9 @@ static void tft_set_pixel(uint16_t x, uint16_t y, uint16_t color)
  * @param length: length of the line
  * @param color: Refer color macro
  */
-static void tft_draw_horizontal_line(uint16_t x, uint16_t y, 
-                                     uint16_t length,
-                                     uint16_t color)
+void tft_draw_horizontal_line(uint16_t x, uint16_t y,
+                              uint16_t length,
+                              uint16_t color)
 {
     set_column(x, (x + length));
     set_page(y, y);
@@ -832,9 +832,9 @@ static void tft_draw_horizontal_line(uint16_t x, uint16_t y,
  * @param length: length of the line
  * @param color: Refer color macro
  */
-static void tft_draw_vertical_line(uint16_t x, uint16_t y, 
-                                   uint16_t length,
-                                   uint16_t color)
+void tft_draw_vertical_line(uint16_t x, uint16_t y,
+                            uint16_t length,
+                            uint16_t color)
 {
     set_column(x, x);
     set_page(y, (y + length));
@@ -854,9 +854,9 @@ static void tft_draw_vertical_line(uint16_t x, uint16_t y,
  * @param y1: End Point (y)
  * @param color
  */
-static void tft_draw_line(uint16_t x0, uint16_t y0, 
-                          uint16_t x1, uint16_t y1,
-                          uint16_t color)
+void tft_draw_line(uint16_t x0, uint16_t y0,
+                   uint16_t x1, uint16_t y1,
+                   uint16_t color)
 {
     int16_t x = x1-x0;
     int16_t y = y1-y0;
@@ -888,9 +888,9 @@ static void tft_draw_line(uint16_t x0, uint16_t y0,
     } 
 }
 
-static void tft_send_data_only(uint8_t byte)
+void tft_send_data_only(uint8_t byte)
 {
-    spi->write(SPI_TFT, byte);
+    spi_write(SPI_TFT, byte);
 }
 
 /**
@@ -903,16 +903,16 @@ static void tft_send_data_only(uint8_t byte)
  * @param width:  Width of the rectangle
  * @param color:  Refer color macro
  */
-static void tft_fill_rectangle(uint16_t x, uint16_t y, 
-                               uint16_t length, uint16_t width, 
-                               uint16_t color)
+void tft_fill_rectangle(uint16_t x, uint16_t y,
+                        uint16_t length, uint16_t width,
+                        uint16_t color)
 {
     tft_fill_area(x, y, (x + length), (y + length), color);
 }
 
-static void tft_fill_circle(uint16_t xc, uint16_t yc, 
-                            int16_t r,
-                            uint16_t color)
+void tft_fill_circle(uint16_t xc, uint16_t yc,
+                     int16_t r,
+                     uint16_t color)
 {
     int16_t x = -r;
     int16_t y = 0;
@@ -946,9 +946,9 @@ static void tft_fill_circle(uint16_t xc, uint16_t yc,
  * @param width:  Width of the rectangle
  * @param color:  Refer color macro
  */
-static void tft_draw_rectangle(uint16_t x, uint16_t y, 
-                               uint16_t length, uint16_t width,
-                               uint16_t color)
+void tft_draw_rectangle(uint16_t x, uint16_t y,
+                        uint16_t length, uint16_t width,
+                        uint16_t color)
 {
     tft_draw_horizontal_line(x, y, length, color);
     tft_draw_horizontal_line(x, y + width, length, color);
@@ -987,9 +987,9 @@ void tft_draw_triangle(uint16_t x0, uint16_t y0,
  * @param r: Radius
  * @param color
  */
-static void tft_draw_circle(uint16_t xc, uint16_t yc, 
-                            uint16_t r,
-                            uint16_t color)
+void tft_draw_circle(uint16_t xc, uint16_t yc,
+                     uint16_t r,
+                     uint16_t color)
 {
     int16_t x = -r;
     int16_t y = 0;
@@ -1024,8 +1024,8 @@ static void tft_draw_circle(uint16_t xc, uint16_t yc,
  * @param fgcolor:  Foreground colour
  * @param bgcolor:  Background colour
  */
-static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y, 
-                          uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
+void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
+                   uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
 {
     uint8_t i, f;
 
@@ -1066,7 +1066,7 @@ static void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
 * @param fgcolor:   foreground color
 * @param bgcolor:   background color
 */
-static void tft_draw_string(char *string, uint16_t x, uint16_t y,
+void tft_draw_string(char *string, uint16_t x, uint16_t y,
                      uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
 {
     while(*string)
@@ -1094,8 +1094,8 @@ static void tft_draw_string(char *string, uint16_t x, uint16_t y,
  *
  * @return:         The number of character printed for the number input
  */
-static uint8_t tft_draw_number(int long_num, uint16_t x, uint16_t y, 
-                               uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
+uint8_t tft_draw_number(int long_num, uint16_t x, uint16_t y,
+                        uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
 {
     uint8_t char_buffer[10] = "";
     uint8_t i = 0;
@@ -1152,8 +1152,8 @@ static uint8_t tft_draw_number(int long_num, uint16_t x, uint16_t y,
  * @param size:     Font size
  * @param color:    Font colour
  */
-static void tft_draw_char_only(uint8_t ascii, uint16_t x, uint16_t y, 
-                               uint16_t size, uint16_t color) 
+void tft_draw_char_only(uint8_t ascii, uint16_t x, uint16_t y,
+                        uint16_t size, uint16_t color)
 {
     uint8_t col = 0;
     uint8_t row = 0;
@@ -1187,8 +1187,8 @@ static void tft_draw_char_only(uint8_t ascii, uint16_t x, uint16_t y,
 * @param size:      font size
 * @param color:     color
 */
-static void tft_draw_string_only(char *string, uint16_t x, uint16_t y,
-                                 uint16_t size, uint16_t color)
+void tft_draw_string_only(char *string, uint16_t x, uint16_t y,
+                          uint16_t size, uint16_t color)
 {
     while(*string)
     {
@@ -1205,7 +1205,7 @@ static void tft_draw_string_only(char *string, uint16_t x, uint16_t y,
 /**
  * @brief  TFT sanity test by drawing several image 
  */
-static void tft_test(void)
+void tft_test(void)
 {
     tft_fill_area(0,0, 100, 100, BLUE);
     tft_fill_area(20,20, 80, 80, RED);
@@ -1227,7 +1227,7 @@ static void tft_test(void)
     tft_draw_string_only("Tesla", 100, 170, 3, WHITE);
 }
 
-static void tft_running_animation(void)
+void tft_running_animation(void)
 {
     static uint16_t i = 0;
     static uint16_t j = 0;
@@ -1250,45 +1250,11 @@ static void tft_running_animation(void)
  * @param tft_services: TFT component service
  * @param spi_services: SPI component service
  */
-void tft_init(tft_services_t *tft_services,
-              spi_services_t *spi_services)
+void tft_init(void)
 {
-    tft_services->clear_screen = tft_clear_screen;
-    tft_services->start = tft_start;
-    tft_services->fill_area = tft_fill_area;
-    tft_services->fill_rectangle = tft_fill_rectangle;
-    tft_services->fill_circle = tft_fill_circle;
-    tft_services->draw_horizontal_line = tft_draw_horizontal_line;
-    tft_services->draw_vertical_line = tft_draw_vertical_line;
-    tft_services->draw_line = tft_draw_line;
-    tft_services->draw_rectangle = tft_draw_rectangle;
-    tft_services->draw_triangle = tft_draw_triangle;
-    tft_services->draw_circle = tft_draw_circle;
-    tft_services->test = tft_test;
-    tft_services->running_animation = tft_running_animation;
-    tft_services->draw_char = tft_draw_char;
-    tft_services->draw_string = tft_draw_string;
-    tft_services->draw_number = tft_draw_number;
-    tft_services->draw_char_only = tft_draw_char_only;
-    tft_services->draw_string_only = tft_draw_string_only;
-    tft_services->set_pixel = tft_set_pixel;
-    tft_services->set_area = tft_set_area;
-    tft_services->start_image_transfer = tft_start_image_transfer;
-    tft_services->send_data_only = tft_send_data_only;
-    tft_services->done_transfer = tft_done_transfer;
-    tft_services->set_orientation = tft_set_orientation;
-    tft_services->send_raw = tft_send_raw;
-    tft_services->send_command = tft_send_command;
-    tft_services->send_data = tft_send_data;
-    tft_services->reset = tft_reset;
 #if NON_BLOCKING
     tft_services->register_done_callback = tft_register_done_callback;
-#endif
 
-    /* SPI Component Services */
-    spi = spi_services;
-
-#if NON_BLOCKING
     tft_info.state = TFT_READY;
     tft_info.send_state = STATE_CMD;
 

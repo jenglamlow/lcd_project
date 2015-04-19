@@ -71,7 +71,7 @@ static uint32_t start_time;
  *  Services
  *-----------------------------------------------------------------------------*/
 
-static void led_start(void)
+void led_start(void)
 {
     //
     // Enable and configure the GPIO port for the LED operation.
@@ -80,7 +80,7 @@ static void led_start(void)
     GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, RED_LED|BLUE_LED|GREEN_LED);
 }
 
-static void led_task(void)
+void led_task(void)
 {
     uint32_t elapsed_time;
 
@@ -116,9 +116,8 @@ static void led_task(void)
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
-void led_init(led_services_t* led)
+void led_init(void)
 {
-    led->start = led_start;
-    led->task = led_task;
+
 }
 

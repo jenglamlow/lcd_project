@@ -58,29 +58,17 @@ typedef void (*spi_tx_cb_t)(void);
 /*-----------------------------------------------------------------------------
  *  Services
  *-----------------------------------------------------------------------------*/
+void spi_open(spi_instance_t spi_instance,
+              spi_tx_cb_t    spi_tx_cb);
 
-/* SPI services function pointer */
-typedef struct
-{
-    void (*open)(spi_instance_t spi_instance,
-                 spi_tx_cb_t    spi_tx_cb);
+void spi_close(spi_instance_t spi_instance);
 
-    void (*close)(spi_instance_t spi_instance);
-
-    void (*write)(spi_instance_t spi_instance, uint8_t data);
-    
-#if USE_INTERRUPT
-    void (*write_non_blocking)(spi_instance_t spi_instance,
-                               uint8_t        *data,
-                               uint32_t       data_size);
-#endif
-
-} spi_services_t;
-
+void spi_write(spi_instance_t spi_instance,
+                      uint8_t        data);
 /*-----------------------------------------------------------------------------
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 
-void spi_init(spi_services_t        *spi_services);
+void spi_init(void);
 
 #endif

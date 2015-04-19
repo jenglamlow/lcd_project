@@ -200,10 +200,6 @@ static const cmd_state_action_t cmd_state_table[] =
     state_etx,
 };
 
-/* Command parser service component */
-static tft_services_t           *tft;
-static uart_services_t          *uart;
-
 /* Global variable temporary buffer storage */
 static uint8_t data[MSG_SIZE];
 static char text[256] = "";
@@ -403,7 +399,7 @@ static void state_data_pass(uint8_t byte)
         if (cmd_info.cmd.name == CMD_IMG)
         {
             img.state = STATE_IMG_PARAM;
-            tft->done_transfer();
+            tft_done_transfer();
         }
         /* CMD_RAW */
         else
@@ -464,7 +460,7 @@ static void blk_action(void)
     color = convert_to_word(data[BLK_COLOR_HIGH],
                             data[BLK_COLOR_LOW]);
 
-    tft->fill_area(x0, y0, x1, y1, color);
+    tft_fill_area(x0, y0, x1, y1, color);
 }
 
 static void img_action(uint8_t byte)
@@ -483,7 +479,7 @@ static void img_action(uint8_t byte)
     if (img.state == STATE_IMG_PIXEL)
     {
         /* Transfer pixel information */
-        tft->send_data_only(byte);
+        tft_send_data_only(byte);
     }
     /* Getting Image Parameter */
     else
@@ -526,7 +522,7 @@ static void img_action(uint8_t byte)
             uint16_t y1 = img.y + img.height - 1;
 
             /* Start image transaction by setting area boundary */
-            tft->start_image_transfer(img.x, img.y, x1, y1);
+            tft_start_image_transfer(img.x, img.y, x1, y1);
 
         }
     }
@@ -540,13 +536,13 @@ static void raw_action(uint8_t byte)
         raw_state = STATE_SEND_DATA;
 
         /* Transfer raw command */
-        tft->send_command(byte);
+        tft_send_command(byte);
     }
     /* Data Byte */
     else
     {
         /* Transfer raw data*/
-        tft->send_data(byte);
+        tft_send_data(byte);
     }
 
 }
@@ -585,14 +581,14 @@ static void str_action(void)
     /* Set Null termination at the last character */
     text[text_size] = 0;
 
-    tft->draw_string_only(&text[0], x, y, font_size, color);
+    tft_draw_string_only(&text[0], x, y, font_size, color);
 }
 
 static void clr_action(void)
 {
     ASSERT(cmd_info.cmd.name == CMD_CLR);
     
-    tft->clear_screen();
+    tft_clear_screen();
 }
 
 static void cmd_parser_process(uint8_t byte)
@@ -626,7 +622,7 @@ static void pc_data_available_cb(void)
 {
     uint8_t read_byte;
     
-    uart->read(UART_CMD, &read_byte, 1);
+    uart_read(UART_CMD, &read_byte, 1);
 
     cmd_parser_process(read_byte);
 }
@@ -635,19 +631,19 @@ static void pc_data_available_cb(void)
  *  Services
  *-----------------------------------------------------------------------------*/
 
-static void cmd_parser_start(void)
+void cmd_parser_start(void)
 {
     /* Start UART Service */
-    uart->open(UART_CMD, pc_data_available_cb);
+    uart_open(UART_CMD, pc_data_available_cb);
 
     /* Register TFT callback */
-    //tft->register_done_callback(tft_done_cb);
+    //tft_register_done_callback(tft_done_cb);
 }
 
-static void cmd_parser_stop(void)
+void cmd_parser_stop(void)
 {
     /* Close UART Service */
-    uart->close(UART_CMD);
+    uart_close(UART_CMD);
 }
 
 /*-----------------------------------------------------------------------------
@@ -655,21 +651,9 @@ static void cmd_parser_stop(void)
  *-----------------------------------------------------------------------------*/
 /**
  * Command parser service initialisation
- * @param cmd_parser_services   Command parser service
- * @param uart_services         UART service
- * @param tft_services          TFT service
  */
-void cmd_parser_init(cmd_parser_services_t* cmd_parser_services,
-                     uart_services_t*       uart_services,
-                     tft_services_t*        tft_services)
+void cmd_parser_init(void)
 {
-    tft = tft_services;
-    uart = uart_services;
-
-    cmd_parser_services->process = cmd_parser_process;
-    cmd_parser_services->start = cmd_parser_start;
-    cmd_parser_services->stop = cmd_parser_stop;
-
     /* Command Info Initialisation */
     cmd_info.state = STATE_EXPECT_STX;
     cmd_info.data_size = 0;

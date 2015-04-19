@@ -255,8 +255,8 @@ void SSI0IntHandler(void)
  * @param spi_instance  SPI instance
  * @param spi_tx_cb     SPI transmit complete callback
  */
-static void spi_open(spi_instance_t spi_instance,
-                     spi_tx_cb_t    spi_tx_cb)
+void spi_open(spi_instance_t spi_instance,
+              spi_tx_cb_t    spi_tx_cb)
 {
     ASSERT(spi_instance < SPI_COUNT);
     ASSERT(spi_tx_cb != NULL);
@@ -328,7 +328,7 @@ static void spi_open(spi_instance_t spi_instance,
  * Close SPI Module
  * @param spi_instance  SPI instance
  */
-static void spi_close(spi_instance_t spi_instance)
+void spi_close(spi_instance_t spi_instance)
 {
     ASSERT(spi_instance < SPI_COUNT);
 
@@ -342,8 +342,8 @@ static void spi_close(spi_instance_t spi_instance)
  * @param spi_instance  SPI instance
  * @param data          Write data byte
  */
-static void spi_write(spi_instance_t spi_instance,
-                      uint8_t        data)
+void spi_write(spi_instance_t spi_instance,
+               uint8_t        data)
 {
     ASSERT(spi_instance < SPI_COUNT);
 
@@ -369,7 +369,7 @@ static void spi_write(spi_instance_t spi_instance,
  * @param data          Write data byte
  * @param data_size     Write data size
  */
-static void spi_write_non_blocking(spi_instance_t spi_instance,
+void spi_write_non_blocking(spi_instance_t spi_instance,
                                    uint8_t        *data,
                                    uint32_t       data_size)
 {
@@ -399,17 +399,9 @@ static void spi_write_non_blocking(spi_instance_t spi_instance,
 
 /**
  * SPI services initialisation
- * @param spi_services  SPI services
  */
-void spi_init(spi_services_t        *spi_services)
+void spi_init(void)
 {
-    /* SPI services initialisation */
-    spi_services->open = spi_open;
-    spi_services->close = spi_close;
-    spi_services->write = spi_write;
-#if USE_INTERRUPT
-    spi_services->write_non_blocking = spi_write_non_blocking;
-#endif
 
     uint8_t i;
     

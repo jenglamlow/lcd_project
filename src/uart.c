@@ -238,8 +238,8 @@ void UART1IntHandler(void)
 /* Services                                                                   */
 /*----------------------------------------------------------------------------*/
 
-static void uart_open(uart_instance_t          uart_instance,
-                      uart_data_available_cb_t uart_data_available_cb)
+void uart_open(uart_instance_t          uart_instance,
+               uart_data_available_cb_t uart_data_available_cb)
 {
     ASSERT(uart_instance < UART_COUNT);
     ASSERT(uart_data_available_cb != NULL);
@@ -284,7 +284,7 @@ static void uart_open(uart_instance_t          uart_instance,
     ROM_UARTClockSourceSet(base, UART_CLOCK_SYSTEM);
 }
 
-static void uart_close(uart_instance_t uart_instance)
+void uart_close(uart_instance_t uart_instance)
 {
     ASSERT(uart_instance < UART_COUNT);
 
@@ -305,9 +305,9 @@ static void uart_close(uart_instance_t uart_instance)
     RingBufFlush(&info->tx_ringbuf_obj);
 }
 
-static void uart_read(uart_instance_t   uart_instance,
-                      uint8_t           *buffer,
-                      uint32_t          buffer_size)
+void uart_read(uart_instance_t   uart_instance,
+               uint8_t           *buffer,
+               uint32_t          buffer_size)
 {
     ASSERT(buffer != 0);
     ASSERT(buffer_size > 0u);
@@ -327,9 +327,9 @@ static void uart_read(uart_instance_t   uart_instance,
     ROM_UARTIntEnable(base, UART_INT_RX);
 }
 
-static void uart_write(uart_instance_t  uart_instance,
-                       uint8_t          *buffer,
-                       uint32_t         buffer_size)
+void uart_write(uart_instance_t  uart_instance,
+                uint8_t          *buffer,
+                uint32_t         buffer_size)
 {
     ASSERT(buffer != 0);
     ASSERT(buffer_size > 0u);
@@ -388,16 +388,8 @@ void uart_task(void)
 /* Initialisation                                                             */
 /*----------------------------------------------------------------------------*/
 
-void uart_init(uart_services_t          *uart_services)
+void uart_init(void)
 {
-    /* UART component initialization */
-    uart_services->open = uart_open;
-    uart_services->close = uart_close;
-    uart_services->read = uart_read;
-    uart_services->write = uart_write;
-    uart_services->print = uart_print;
-    uart_services->task = uart_task;
-
     uint8_t i;
 
     for (i = 0; i < UART_COUNT; i++)

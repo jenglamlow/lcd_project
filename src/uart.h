@@ -48,38 +48,26 @@ typedef void (*uart_data_available_cb_t)(void);
 /* Services                                                                   */
 /*----------------------------------------------------------------------------*/
 
-/* Function Pointer for UART component service */
-typedef struct 
-{
-    /* Open UART communication */
-    void (*open)(uart_instance_t            uart_instance,
-                 uart_data_available_cb_t   uart_data_available_cb);
+void uart_open(uart_instance_t          uart_instance,
+               uart_data_available_cb_t uart_data_available_cb);
 
-    /* Close UART communication */
-    void (*close)(uart_instance_t         uart_instance);
+void uart_close(uart_instance_t uart_instance);
 
-    /* Read data from UART */
-    void (*read)(uart_instance_t    uart_instance,
-                 uint8_t            *buffer,
-                 uint32_t           buffer_size);
+void uart_read(uart_instance_t   uart_instance,
+               uint8_t           *buffer,
+               uint32_t          buffer_size);
 
-    /* Write data to UART */
-    void (*write)(uart_instance_t       uart_instance,
-                  uint8_t               *data,
-                  uint32_t              data_size);
+void uart_write(uart_instance_t  uart_instance,
+                uint8_t          *buffer,
+                uint32_t         buffer_size);
 
-    void (*task)(void);
-
-    /* Print function similar as C printf - for debugging */
-    void (*print)(const char *fmt, ...);
-
-} uart_services_t;
+void uart_task(void);
 
 /*----------------------------------------------------------------------------*/
 /* Initialisation                                                             */
 /*----------------------------------------------------------------------------*/
 
 /* UART driver component initialization */
-void uart_init(uart_services_t          *uart_services);
+void uart_init(void);
 
 #endif
