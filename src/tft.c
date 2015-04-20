@@ -30,6 +30,7 @@
 /*-----------------------------------------------------------------------------
  *  Configuration
  *-----------------------------------------------------------------------------*/
+/* Definition for NON-BLOCKING mode */
 #define NON_BLOCKING        (0)
 
 /* TFT (ILI9341) size */
@@ -138,6 +139,7 @@
  *  Private Types
  *-----------------------------------------------------------------------------*/
 
+#if NON_BLOCKING
 typedef enum
 {
     STATE_CMD = 0,
@@ -146,7 +148,7 @@ typedef enum
 
 typedef void (*tft_action_t)(void);
 
-#if NON_BLOCKING
+
 typedef struct
 {
     uint8_t cmd;
@@ -180,10 +182,16 @@ typedef struct
 } tft_info_t;
 #endif
 
+/* TFT internal info */
 typedef struct
 {
+    /* Maximum pixel for x */
     uint16_t max_x;
+
+    /* Maximum pixel for y */
     uint16_t max_y;
+
+    /* Orientation mode */
     uint8_t  orientation;
 } tft_info_t;
 
@@ -261,9 +269,9 @@ static bool cmd_queue_read(tft_cmd_info_t *cmd_info)
 #endif
 
 /**
- * @brief  Initialize TFT hardware setting 
- *         SPI initialization
- *         D/C & RST GPIO hardware initialization
+ * @brief   Initialize TFT hardware setting
+ *          SPI initialization
+ *          D/C & RST GPIO hardware initialization
  */
 static void hw_init(void)
 {
@@ -293,9 +301,8 @@ static void hw_init(void)
 }
 
 /**
- * @brief  TFT write command
- *
- * @param data: Command (8-bit) 
+ * @brief   Send command
+ * @param   cmd     TFT Command
  */
 void tft_send_command(uint8_t cmd)
 {
@@ -309,9 +316,9 @@ void tft_send_command(uint8_t cmd)
 }
 
 /**
- * @brief  TFT write data
+ * @brief   Write data
  *
- * @param data: data (8-bit)
+ * @param   data    data (8-bit)
  */
 void tft_send_data(uint8_t data)
 {
@@ -346,9 +353,9 @@ static void send_command_struct(tft_cmd_info_t* cmd_info)
 #endif
 
 /**
- * @brief  TFT write in word
+ * @brief   Send word (16-bit)
  *
- * @param word: data (16-bit)
+ * @param   word    data (16-bit)
  */
 static void send_word(uint16_t word)
 {
@@ -366,10 +373,9 @@ static void send_word(uint16_t word)
 }
 
 /**
- * @brief  TFT set column
- *
- * @param start_column: Starting position of the column
- * @param end_column: End position of the column
+ * @brief   Set column
+ * @param   start_column    Starting position of the column
+ * @param   end_column      End position of the column
  */
 static void set_column(uint16_t start_column,uint16_t end_column)
 {
@@ -379,10 +385,9 @@ static void set_column(uint16_t start_column,uint16_t end_column)
 }
 
 /**
- * @brief  TFT set page
- *
- * @param StartPage: Starting position of the page
- * @param EndPage: End position of the page
+ * @brief   Set page
+ * @param   StartPage   Starting position of the page
+ * @param   EndPage     End position of the page
  */
 static void set_page(uint16_t StartPage,uint16_t EndPage)
 {
@@ -392,10 +397,9 @@ static void set_page(uint16_t StartPage,uint16_t EndPage)
 }
 
 /**
- * @brief  set starting position of x and y
- *
- * @param x: x coordinate
- * @param y: y coordinate
+ * @brief   Set starting position of x and y
+ * @param   x   x coordinate
+ * @param   y   y coordinate
  */
 static void set_xy(uint16_t x, uint16_t y)
 {
@@ -496,6 +500,12 @@ static void tft_register_done_callback(tft_done_cb_t tft_done_cb)
 }
 #endif
 
+/**
+ * @brief   Send raw message packet
+ * @param   cmd     Command
+ * @param   data    Data (8-bit)
+ * @param   size    Data size
+ */
 void tft_send_raw(uint8_t    cmd,
                   uint8_t*   data,
                   uint32_t   size)
@@ -542,6 +552,13 @@ void tft_send_raw(uint8_t    cmd,
 #endif
 }
 
+/**
+ * @brief   Set drawing area (top left & bottom right position)
+ * @param   x0  x-position for top right position
+ * @param   y0  y-position for top right position
+ * @param   x1  x-position for bottom left position
+ * @param   y1  y-position for bottom left position
+ */
 void tft_set_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
     set_column(x0, x1);
@@ -549,6 +566,13 @@ void tft_set_area(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
     tft_send_command(RAMWRP);              /* Memory Write */
 }
 
+/**
+ * @brief   Start image transfer process by setting the image position
+ * @param   x0  x-position for top right position
+ * @param   y0  y-position for top right position
+ * @param   x1  x-position for bottom left position
+ * @param   y1  y-position for bottom left position
+ */
 void tft_start_image_transfer(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1)
 {
     if ((tft_info.orientation == ORIENT_H) || (tft_info.orientation == ORIENT_H_I))
@@ -563,12 +587,19 @@ void tft_start_image_transfer(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1
     SET_DC_PIN;
 }
 
+/**
+ * @brief   Set TFT transfer complete by setting CS pin to HIGH
+ */
 void tft_done_transfer(void)
 {
     /* Set CS pin to high to indicate transfer is completed */
     SET_CS_PIN;
 }
 
+/**
+ *
+ * @param orientation
+ */
 void tft_set_orientation(uint8_t orientation)
 {
     tft_send_command(MADCTL);       /* Memory Access Control */
@@ -589,13 +620,12 @@ void tft_set_orientation(uint8_t orientation)
 }
 
 /**
- * @brief Fill area (x0, y0) to (x1, y1) with colour
- *
- * @param x0: Top left x coordinate
- * @param y0: Top left y coordinate
- * @param x1: Bottom right x coordinate
- * @param y1: Bottom right y coordinate
- * @param color: Refer color macro
+ * @brief   Fill area (x0, y0) to (x1, y1) with colour
+ * @param   x0    Top left x coordinate
+ * @param   y0    Top left y coordinate
+ * @param   x1    Bottom right x coordinate
+ * @param   y1    Bottom right y coordinate
+ * @param   color Colour (16-bit)
  */
 void tft_fill_area(uint16_t x0, uint16_t y0,
                    uint16_t x1, uint16_t y1,
@@ -791,11 +821,10 @@ void tft_start(void)
 
 
 /**
- * @brief  TFT set pixel to specific color
- *
- * @param x: X coordinate
- * @param y: Y coordinate
- * @param color: refer to COLOR macro
+ * @brief   TFT set pixel to specific color
+ * @param   x       X coordinate
+ * @param   y       Y coordinate
+ * @param   color   Refer to COLOR macro
  */
 void tft_set_pixel(uint16_t x, uint16_t y, uint16_t color)
 {
@@ -804,12 +833,11 @@ void tft_set_pixel(uint16_t x, uint16_t y, uint16_t color)
 }
 
 /**
- * @brief  Added draw a coloured horizontal line API starting at (x,y) with length
- *
- * @param x: starting x coordinate
- * @param y: starting y coordinate
- * @param length: length of the line
- * @param color: Refer color macro
+ * @brief   Draw a coloured horizontal line API starting at (x,y) with length
+ * @param   x         Starting x coordinate
+ * @param   y         Starting y coordinate
+ * @param   length    Length of the line
+ * @param   color     Colour (16-bit)
  */
 void tft_draw_horizontal_line(uint16_t x, uint16_t y,
                               uint16_t length,
@@ -825,12 +853,11 @@ void tft_draw_horizontal_line(uint16_t x, uint16_t y,
 }
 
 /**
- * @brief  Added draw a coloured vertical line API starting at (x,y) with length
- *
- * @param x: starting x coordinate
- * @param y: starting y coordinate
- * @param length: length of the line
- * @param color: Refer color macro
+ * @brief   Added draw a coloured vertical line API starting at (x,y) with length
+ * @param   x       Starting x coordinate
+ * @param   y       Starting y coordinate
+ * @param   length  Length of the line
+ * @param   color   Colour (16-bit)
  */
 void tft_draw_vertical_line(uint16_t x, uint16_t y,
                             uint16_t length,
@@ -846,13 +873,13 @@ void tft_draw_vertical_line(uint16_t x, uint16_t y,
 }
 
 /**
- * @brief  Draw Line from (x0, y0) to (x1, y1) with color
+ * @brief   Draw Line from (x0, y0) to (x1, y1) with color
  *
- * @param x0: Starting point (x)
- * @param y0: Starting point (x)
- * @param x1: End Point (x)
- * @param y1: End Point (y)
- * @param color
+ * @param   x0      Starting point (x)
+ * @param   y0      Starting point (x)
+ * @param   x1      End Point (x)
+ * @param   y1      End Point (y)
+ * @param   color   Color (16-bit)
  */
 void tft_draw_line(uint16_t x0, uint16_t y0,
                    uint16_t x1, uint16_t y1,
@@ -888,20 +915,24 @@ void tft_draw_line(uint16_t x0, uint16_t y0,
     } 
 }
 
+/**
+ * @brief   TFT send data only (without clearing CS pin, setting D/C pin)
+ *          (For image transfer purpose)
+ * @param   byte    Byte to be transferred
+ */
 void tft_send_data_only(uint8_t byte)
 {
     spi_write(SPI_TFT, byte);
 }
 
 /**
- * @brief  Draw rectangle with top left starting position (x,y) with length
- *         and width filled with color
- *
- * @param x: Top left x coordinate
- * @param y: Top left y coordinate
- * @param length: Length of the rectangle
- * @param width:  Width of the rectangle
- * @param color:  Refer color macro
+ * @brief   Draw rectangle with top left starting position (x,y) with length
+ *          and width filled with color
+ * @param   x       Top left x coordinate
+ * @param   y       Top left y coordinate
+ * @param   length  Length of the rectangle
+ * @param   width   Width of the rectangle
+ * @param   color   Colour (16-bit)
  */
 void tft_fill_rectangle(uint16_t x, uint16_t y,
                         uint16_t length, uint16_t width,
@@ -910,6 +941,13 @@ void tft_fill_rectangle(uint16_t x, uint16_t y,
     tft_fill_area(x, y, (x + length), (y + length), color);
 }
 
+/**
+ * @brief   Draw circle with filled color with center at (xc, yc) with radius, r
+ * @param   xc      Center of circle (x)
+ * @param   yc      Center of circle (y)
+ * @param   r       Radius
+ * @param   color   Color (16-bit)
+ */
 void tft_fill_circle(uint16_t xc, uint16_t yc,
                      int16_t r,
                      uint16_t color)
@@ -938,13 +976,12 @@ void tft_fill_circle(uint16_t xc, uint16_t yc,
 }
 
 /**
- * @brief  Draw Rectangle Boundary without fill
- *
- * @param x: Top left x coordinate
- * @param y: Top left y coordinate
- * @param length: Length of the rectangle
- * @param width:  Width of the rectangle
- * @param color:  Refer color macro
+ * @brief   Draw Rectangle Boundary without fill
+ * @param   x       Top left x coordinate
+ * @param   y       Top left y coordinate
+ * @param   length  Length of the rectangle
+ * @param   width   Width of the rectangle
+ * @param   color   Colour (16-bit)
  */
 void tft_draw_rectangle(uint16_t x, uint16_t y,
                         uint16_t length, uint16_t width,
@@ -958,16 +995,15 @@ void tft_draw_rectangle(uint16_t x, uint16_t y,
 
 
 /**
-* @brief  Draw Triangle based on Coordinate (x0, y0), (x1, y1) & (x2, y2)
-*         without fill
-*
-* @param x0: first point (x-coordinate)
-* @param y0: first point (y-coordinate)
-* @param x1: second point (x-coordinate)
-* @param y1: second point (y-coordinate)
-* @param x2: third point (x-coordinate)
-* @param y2: third point (y-coordinate)
-* @param color
+* @brief    Draw Triangle based on Coordinate (x0, y0), (x1, y1) & (x2, y2)
+*           without fill
+* @param    x0      first point (x-coordinate)
+* @param    y0      first point (y-coordinate)
+* @param    x1      second point (x-coordinate)
+* @param    y1      second point (y-coordinate)
+* @param    x2      third point (x-coordinate)
+* @param    y2      third point (y-coordinate)
+* @param    color   Color (16-bit)
 */
 void tft_draw_triangle(uint16_t x0, uint16_t y0, 
                        uint16_t x1, uint16_t y1,
@@ -980,12 +1016,11 @@ void tft_draw_triangle(uint16_t x0, uint16_t y0,
 }
 
 /**
- * @brief  Draw circle using center point (xc, yc) with radius,r 
- *
- * @param xc: Center point (x-coordinate)
- * @param yc: Center point (y-coordinate)
- * @param r: Radius
- * @param color
+ * @brief   Draw circle using center point (xc, yc) with radius,r
+ * @param   xc      Center point (x-coordinate)
+ * @param   yc      Center point (y-coordinate)
+ * @param   r       Radius
+ * @param   color   Color (16-bit)
  */
 void tft_draw_circle(uint16_t xc, uint16_t yc,
                      uint16_t r,
@@ -1015,14 +1050,13 @@ void tft_draw_circle(uint16_t xc, uint16_t yc,
 }
 
 /**
- * @brief Draw ASCII charactar at (x,y) with foreground and background colour 
- *
- * @param ascii:    ASCII Character. eg: 'A'
- * @param x:        Starting x position
- * @param y:        Starting y position
- * @param size:     Size of the font
- * @param fgcolor:  Foreground colour
- * @param bgcolor:  Background colour
+ * @brief   Draw ASCII charactar at (x,y) with foreground and background colour
+ * @param   ascii    ASCII Character. eg: 'A'
+ * @param   x        Starting x position
+ * @param   y        Starting y position
+ * @param   size     Size of the font
+ * @param   fgcolor  Foreground colour
+ * @param   bgcolor  Background colour
  */
 void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
                    uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
@@ -1057,14 +1091,14 @@ void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
 }
 
 /**
-* @brief  Draw string at (x,y) with fill foreground and background color
+* @brief    Draw string at (x,y) with fill foreground and background color
 *
-* @param string:    String input. Eg: "abc"
-* @param x:         x coordinate
-* @param y:         y coordinate
-* @param size:      font size
-* @param fgcolor:   foreground color
-* @param bgcolor:   background color
+* @param    string    String input. Eg: "abc"
+* @param    x         x coordinate
+* @param    y         y coordinate
+* @param    size      font size
+* @param    fgcolor   foreground color
+* @param    bgcolor   background color
 */
 void tft_draw_string(char *string, uint16_t x, uint16_t y,
                      uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
@@ -1076,21 +1110,21 @@ void tft_draw_string(char *string, uint16_t x, uint16_t y,
 
         if(x < tft_info.max_x)
         {
-            x += TFT_FONT_SPACE * size;                                     /* Move cursor right            */
+            x += TFT_FONT_SPACE * size;    /* Move cursor right            */
         }
     }
 }
 
 
 /**
- * @brief Print number character at (x,y) with foreground & background color 
+ * @brief   Print number character at (x,y) with foreground & background color
  *
- * @param long_num: Number to be printed
- * @param x:        x-coordinate
- * @param y:        y-coordinate
- * @param size:     Size of the number text
- * @param fgcolor:  Foreground color
- * @param bgcolor:  Background color
+ * @param   long_num    Number to be printed
+ * @param   x           x-coordinate
+ * @param   y           y-coordinate
+ * @param   size:       Size of the number text
+ * @param   fgcolor     Foreground color
+ * @param   bgcolor     Background color
  *
  * @return:         The number of character printed for the number input
  */
@@ -1144,13 +1178,13 @@ uint8_t tft_draw_number(int long_num, uint16_t x, uint16_t y,
 
 
 /**
- * @brief  Draw ASCII Character without background colour
+ * @brief   Draw ASCII Character without background colour
  *
- * @param ascii:    ASCII Character ('G')
- * @param x:        x coordinate 
- * @param y:        y coordinate
- * @param size:     Font size
- * @param color:    Font colour
+ * @param   ascii    ASCII Character ('G')
+ * @param   x        x coordinate
+ * @param   y        y coordinate
+ * @param   size     Font size
+ * @param   color    Font colour
  */
 void tft_draw_char_only(uint8_t ascii, uint16_t x, uint16_t y,
                         uint16_t size, uint16_t color)
@@ -1179,13 +1213,13 @@ void tft_draw_char_only(uint8_t ascii, uint16_t x, uint16_t y,
 }
 
 /**
-* @brief  Draw string at (x,y) without background colour
+* @brief    Draw string at (x,y) without background colour
 *
-* @param string:    String input. Eg: "abc"
-* @param x:         x coordinate
-* @param y:         y coordinate
-* @param size:      font size
-* @param color:     color
+* @param    string    String input. Eg: "abc"
+* @param    x         x coordinate
+* @param    y         y coordinate
+* @param    size      font size
+* @param    color     color
 */
 void tft_draw_string_only(char *string, uint16_t x, uint16_t y,
                           uint16_t size, uint16_t color)
@@ -1245,10 +1279,7 @@ void tft_running_animation(void)
  *-----------------------------------------------------------------------------*/
 
 /**
- * @brief  TFT service Initialization
- *
- * @param tft_services: TFT component service
- * @param spi_services: SPI component service
+ * @brief  TFT Initialisation
  */
 void tft_init(void)
 {

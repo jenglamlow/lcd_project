@@ -48,6 +48,7 @@
 /* Constants                                                                  */
 /*----------------------------------------------------------------------------*/
 
+/* UART base map */
 static const uint32_t uart_base[UART_COUNT] = 
 {
     UART0_BASE,
@@ -55,6 +56,7 @@ static const uint32_t uart_base[UART_COUNT] =
     UART2_BASE
 };
 
+/* UART interrupt map */
 static const uint32_t uart_int[UART_COUNT] = 
 {
     INT_UART0,
@@ -62,6 +64,7 @@ static const uint32_t uart_int[UART_COUNT] =
     INT_UART2
 };
 
+/* UART peripheral map */
 static const uint32_t uart_peripheral[UART_COUNT] =
 {
     SYSCTL_PERIPH_UART0, 
@@ -108,6 +111,10 @@ uint8_t uart1_tx_buffer[TX_BUFFER_SIZE];
 /* Helper functions                                                           */
 /*----------------------------------------------------------------------------*/
 
+/**
+ * @brief   UART transmit data and put into UART FIFO
+ * @param   info    UART info
+ */
 static void uart_transmit(uart_info_t* info)
 {
     uint32_t base = uart_base[info->instance];
@@ -131,6 +138,11 @@ static void uart_transmit(uart_info_t* info)
     }
 }
 
+/**
+ * @brief   Return the number of data in the buffer
+ * @param   uart_instance   UART Instance
+ * @return  Number of data in the buffer
+ */
 static uint32_t uart_data_available(uart_instance_t uart_instance)
 {
     ASSERT(uart_instance < UART_COUNT);
@@ -144,8 +156,11 @@ static uint32_t uart_data_available(uart_instance_t uart_instance)
 /* Event Callback Function                                                    */
 /*----------------------------------------------------------------------------*/
 
-/* Event loop UART receive callback function */
-static void uart_rx_evl_cb(uint8_t ix)
+/**
+ * @brief   UART receive task
+ * @param   ix      UART instance
+ */
+static void uart_rx_task(uint8_t ix)
 {
     uart_info_t *info = &uart_info[ix];
 
@@ -179,7 +194,10 @@ static void uart_rx_evl_cb(uint8_t ix)
 /* IRQ handlers                                                               */
 /*----------------------------------------------------------------------------*/
 
-/* Generic UART IRQ handler */
+/**
+ * @brief   Generic IRQ handler for UART
+ * @param   uart_instance  UART Instance
+ */
 static void uart_irq(uart_instance_t uart_instance)
 {
     uint32_t status;
@@ -229,6 +247,9 @@ static void uart_irq(uart_instance_t uart_instance)
     }
 }
 
+/**
+ * @brief   UART1 IRQ Handler
+ */
 void UART1IntHandler(void)
 {
     uart_irq(UART_CMD);
@@ -238,6 +259,11 @@ void UART1IntHandler(void)
 /* Services                                                                   */
 /*----------------------------------------------------------------------------*/
 
+/**
+ * @brief   Open UART module
+ * @param   uart_instance           UART Instance
+ * @param   uart_data_available_cb  UART callback when data available
+ */
 void uart_open(uart_instance_t          uart_instance,
                uart_data_available_cb_t uart_data_available_cb)
 {
@@ -284,6 +310,10 @@ void uart_open(uart_instance_t          uart_instance,
     ROM_UARTClockSourceSet(base, UART_CLOCK_SYSTEM);
 }
 
+/**
+ * @brief   Close UART module
+ * @param   uart_instance   UART Instance
+ */
 void uart_close(uart_instance_t uart_instance)
 {
     ASSERT(uart_instance < UART_COUNT);
@@ -305,6 +335,12 @@ void uart_close(uart_instance_t uart_instance)
     RingBufFlush(&info->tx_ringbuf_obj);
 }
 
+/**
+ * @brief   Read UART data and store into buffer with size of buffer_size
+ * @param   uart_instance   UART Instance
+ * @param   buffer          Pointer to data array
+ * @param   buffer_size     Size of data to be read
+ */
 void uart_read(uart_instance_t   uart_instance,
                uint8_t           *buffer,
                uint32_t          buffer_size)
@@ -327,6 +363,12 @@ void uart_read(uart_instance_t   uart_instance,
     ROM_UARTIntEnable(base, UART_INT_RX);
 }
 
+/**
+ * @brief   Write array with buffer_size to UART based on uart_instance
+ * @param   uart_instance   UART Instance
+ * @param   buffer          Pointer to data array
+ * @param   buffer_size     Size of data to be written
+ */
 void uart_write(uart_instance_t  uart_instance,
                 uint8_t          *buffer,
                 uint32_t         buffer_size)
@@ -366,6 +408,9 @@ void uart_print(const char *fmt, ...)
 #endif
 }
 
+/**
+ * @brief   UART task (For task scheduler)
+ */
 void uart_task(void)
 {
     uint8_t ix;
@@ -378,8 +423,8 @@ void uart_task(void)
         /* Check whether there is data received */
         if(info->rx_flag)
         {
-            /* Invoke UART receive callback */
-            uart_rx_evl_cb(ix);
+            /* Invoke UART receive task */
+            uart_rx_task(ix);
         }
     }
 }
@@ -388,6 +433,9 @@ void uart_task(void)
 /* Initialisation                                                             */
 /*----------------------------------------------------------------------------*/
 
+/**
+ * @brief   UART Initialisation
+ */
 void uart_init(void)
 {
     uint8_t i;

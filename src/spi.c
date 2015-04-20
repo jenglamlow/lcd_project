@@ -140,8 +140,8 @@ static spi_info_t spi_info[SPI_COUNT];
  *-----------------------------------------------------------------------------*/
 
 /**
- * SPI Transmint compete callback
- * @param ix    SPI instance
+ * @brief   SPI Transmint compete callback
+ * @param   ix    SPI instance
  */
 static void spi_tx_evl_cb(uint8_t ix)
 {
@@ -250,10 +250,10 @@ void SSI0IntHandler(void)
  *-----------------------------------------------------------------------------*/
 
 /**
- * SPI initialise GPIO and hardware peripheral and register transmit complete
- * callback
- * @param spi_instance  SPI instance
- * @param spi_tx_cb     SPI transmit complete callback
+ * @brief   SPI initialise GPIO and hardware peripheral and register transmit complete
+ *          callback
+ * @param   spi_instance  SPI instance
+ * @param   spi_tx_cb     SPI transmit complete callback
  */
 void spi_open(spi_instance_t spi_instance,
               spi_tx_cb_t    spi_tx_cb)
@@ -325,8 +325,8 @@ void spi_open(spi_instance_t spi_instance,
 }
 
 /**
- * Close SPI Module
- * @param spi_instance  SPI instance
+ * @brief   Close SPI Module
+ * @param   spi_instance  SPI instance
  */
 void spi_close(spi_instance_t spi_instance)
 {
@@ -338,9 +338,9 @@ void spi_close(spi_instance_t spi_instance)
 }
 
 /**
- * Write data to SPI (Blocking)
- * @param spi_instance  SPI instance
- * @param data          Write data byte
+ * @brief   Write data to SPI (Blocking)
+ * @param   spi_instance  SPI instance
+ * @param   data          Write data byte
  */
 void spi_write(spi_instance_t spi_instance,
                uint8_t        data)
@@ -364,10 +364,10 @@ void spi_write(spi_instance_t spi_instance,
 
 #if USE_INTERRUPT
 /**
- * Write data to SPI (Non-Blocking)
- * @param spi_instance  SPI instance
- * @param data          Write data byte
- * @param data_size     Write data size
+ * @brief   Write data to SPI (Non-Blocking)
+ * @param   spi_instance  SPI instance
+ * @param   data          Write data byte
+ * @param   data_size     Write data size
  */
 void spi_write_non_blocking(spi_instance_t spi_instance,
                                    uint8_t        *data,
@@ -398,7 +398,7 @@ void spi_write_non_blocking(spi_instance_t spi_instance,
  *-----------------------------------------------------------------------------*/
 
 /**
- * SPI services initialisation
+ * @brief   SPI services initialisation
  */
 void spi_init(void)
 {
