@@ -1,9 +1,9 @@
 /*
  * =====================================================================================
  *
- *       Filename:  utils.h
+ *       Filename:  utilities.h
  *
- *    Description:  
+ *    Description:  Header file for Utility Functions
  *
  *        Version:  1.0
  *        Created:  11/15/2014 01:54:26 PM

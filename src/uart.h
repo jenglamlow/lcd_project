@@ -33,7 +33,7 @@
 /* UART driver list */
 typedef enum {
     UART_0,
-    UART_CMD,
+    UART_1,
     UART_2,
 } uart_instance_t;
 

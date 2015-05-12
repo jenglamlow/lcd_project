@@ -75,8 +75,7 @@ typedef enum
     STATE_EXPECT_STX,
     STATE_EXPECT_CMD,
     STATE_EXPECT_SIZE,
-    STATE_EXPECT_DATA_STORE,
-    STATE_EXPECT_DATA_PASS,
+    STATE_EXPECT_DATA,
     STATE_EXPECT_ETX
 } state_t;
 
@@ -116,7 +115,11 @@ typedef struct
     /* Struture encapsulating  */
     tRingBufObject data_ringbuf_obj;
 
+    /* Command Data Size */
     uint32_t data_size;
+
+    /* Command current data size */
+    uint32_t current_data
 
 } cmd_info_t;
 
@@ -139,16 +142,13 @@ typedef struct
     uint16_t    x;
     uint16_t    y;
     img_state_t state;
-    uint8_t     buffer[8];
-    uint8_t     buffer_idx;
-    uint32_t    pix_idx;
 } img_t;
 
 /* Function Pointer for Command Parser State Action */
 typedef void (*cmd_state_action_t)(uint8_t byte);
 
 /* Function Pointer for Received Command Action */
-typedef void (*cmd_invoke_action_t)(void);
+typedef bool (*cmd_invoke_action_t)(uint8_t byte);
 
 /*-----------------------------------------------------------------------------
  *  Private Data
@@ -158,17 +158,16 @@ typedef void (*cmd_invoke_action_t)(void);
 static void state_stx(uint8_t byte);
 static void state_cmd(uint8_t byte);
 static void state_size(uint8_t byte);
-static void state_data_store(uint8_t byte);
-static void state_data_pass(uint8_t byte);
+static void state_data(uint8_t byte);
 static void state_etx(uint8_t byte);
 
 /* Received Command Action */
-static void nop_action(void);
-static void blk_action(void);
-static void img_action(uint8_t byte);
-static void str_action(void);
-static void clr_action(void);
-static void raw_action(uint8_t byte);
+static bool nop_action(uint8_t byte);
+static bool blk_action(uint8_t byte);
+static bool img_action(uint8_t byte);
+static bool str_action(uint8_t byte);
+static bool clr_action(uint8_t byte);
+static bool raw_action(uint8_t byte);
 
 /* Command Table to store command list with expected minimum data size */
 static const cmd_definition_t cmd_table[MAX_CMD] = 
@@ -183,10 +182,10 @@ static const cmd_definition_t cmd_table[MAX_CMD] =
 static const cmd_invoke_action_t cmd_invoke[] =
 {
     /* CMD_BLK */   blk_action,
-    /* CMD_IMG */   nop_action,
+    /* CMD_IMG */   img_action,
     /* CMD_STR */   str_action,
     /* CMD_CLR */   clr_action,
-    /* CMD_RAW */   nop_action
+    /* CMD_RAW */   raw_action
 };
 
 /* Table storing command state function */
@@ -195,8 +194,7 @@ static const cmd_state_action_t cmd_state_table[] =
     state_stx,
     state_cmd,
     state_size,
-    state_data_store,
-    state_data_pass,
+    state_data,
     state_etx,
 };
 
@@ -208,6 +206,15 @@ static char text[256] = "";
 static cmd_info_t  cmd_info;
 static img_t       img;
 static raw_state_t raw_state;
+
+#ifdef UART_CMD_0
+static uart_instance_t uart_type = UART_0;
+#elif UART_CMD_1
+static uart_instance_t uart_type = UART_1;
+#else
+static uart_instance_t uart_type = UART_2;
+#endif
+
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -316,6 +323,7 @@ static void state_size(uint8_t byte)
     else
     {
         RingBufRead(&cmd_info.data_ringbuf_obj, &temp[0], 3);
+        ASSERT(RingBufEmpty(&cmd_info.data_ringbuf_obj));
 
         data_size |= (((uint32_t)temp[0]) << 24);
         data_size |= (((uint32_t)temp[1]) << 16);
@@ -324,22 +332,14 @@ static void state_size(uint8_t byte)
 
         cmd_info.data_size = data_size;
 
-        ASSERT(RingBufEmpty(&cmd_info.data_ringbuf_obj));
-
         if (data_size > 0)
         {
             if (data_size >= cmd_info.cmd.size)
             {
-                /* If command is IMG */
-                if ((cmd_info.cmd.name == CMD_IMG) ||
-                    (cmd_info.cmd.name == CMD_RAW))
-                {
-                    set_state(STATE_EXPECT_DATA_PASS);
-                }
-                else
-                {
-                    set_state(STATE_EXPECT_DATA_STORE);
-                }
+                set_state(STATE_EXPECT_DATA);
+
+                /* Clear current read data size */
+                cmd_info.current_data = 0;
             }
             else
             {
@@ -351,62 +351,24 @@ static void state_size(uint8_t byte)
         /* Jump to STATE_EXPECT_ETX when no data */
         else
         {
-            set_state(STATE_EXPECT_ETX);
+            /* Execute action */
+            if (cmd_invoke[(uint8_t)(cmd_info.cmd.name)](byte))
+            {
+                set_state(STATE_EXPECT_ETX);
+            }
         }
     }
 }
 
-static void state_data_store(uint8_t byte)
+static void state_data(uint8_t byte)
 {
-    ASSERT(get_state() == STATE_EXPECT_DATA_STORE);
-    
-    /* Store buffer if less than maximum buffer size */
-    RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
+    ASSERT(get_state() == STATE_EXPECT_DATA);
 
-    /* Expected data size reached */
-    if (RingBufUsed(&cmd_info.data_ringbuf_obj) == cmd_info.data_size)
+    cmd_info.current_data++;
+
+    /* Execute action */
+    if (cmd_invoke[(uint8_t)(cmd_info.cmd.name)](byte))
     {
-        set_state(STATE_EXPECT_ETX);
-    }
-}
-
-static void state_data_pass(uint8_t byte)
-{
-    ASSERT(get_state() == STATE_EXPECT_DATA_PASS);
-
-    static uint32_t current_data = 0;
-
-    current_data++;
-
-    /* CMD_IMG */
-    if (cmd_info.cmd.name == CMD_IMG)
-    {
-        /* Execute image action */
-        img_action(byte);
-    }
-    /* CMD_RAW */
-    else
-    {
-        /* Execute raw action */
-        raw_action(byte);
-    }
-
-    if (current_data == cmd_info.data_size)
-    {
-        current_data = 0;
-
-        /* CMD_IMG */
-        if (cmd_info.cmd.name == CMD_IMG)
-        {
-            img.state = STATE_IMG_PARAM;
-            tft_done_transfer();
-        }
-        /* CMD_RAW */
-        else
-        {
-            raw_state = STATE_SEND_CMD;
-        }
-
         set_state(STATE_EXPECT_ETX);
     }
 }
@@ -414,24 +376,26 @@ static void state_data_pass(uint8_t byte)
 
 static void state_etx(uint8_t byte)
 { 
-    /* Full packet found */
-    if (byte == CMD_ETX)
-    {
-        /* Execute action */
-        cmd_invoke[(uint8_t)(cmd_info.cmd.name)]();
-    }
-    
+//    /* Full packet found */
+//    if (byte == CMD_ETX)
+//    {
+//        /* Execute action */
+//        cmd_invoke[(uint8_t)(cmd_info.cmd.name)]();
+//    }
+//
 
     /* Reset back to STATE_EXPECT_STX for new message packet */
     set_state(STATE_EXPECT_STX);
 }
 
-static void nop_action(void)
+static bool nop_action(uint8_t byte)
 {
     /* Do nothing */
+
+    return true;
 }
 
-static void blk_action(void)
+static bool blk_action(uint8_t byte)
 {
     ASSERT(cmd_info.cmd.name == CMD_BLK);
 
@@ -461,16 +425,20 @@ static void blk_action(void)
                             data[BLK_COLOR_LOW]);
 
     tft_fill_area(x0, y0, x1, y1, color);
+
+    return true;
 }
 
-static void img_action(uint8_t byte)
+static bool img_action(uint8_t byte)
 {
     /* x(H), x(L), y(H), y(L), h(H), h(L), w(H), w(L), 16bit-pixel */
 
+    bool last_data = false;
     uint16_t height = 0;
     uint16_t width = 0;
     uint16_t x = 0;
     uint16_t y = 0;
+    uint8_t temp[8];
 
     /*
      * Sending Image Pixel
@@ -485,23 +453,26 @@ static void img_action(uint8_t byte)
     else
     {
         /* Buffer the first 7 byte (MSB first) */
-        if (img.buffer_idx < 7)
+        if (RingBufUsed(&cmd_info.data_ringbuf_obj) < 7)
         {
-            img.buffer[img.buffer_idx++] = byte;
+            RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
         }
         else
         /* The 8th byte */
         {
+            RingBufRead(&cmd_info.data_ringbuf_obj, &temp[0], 7);
+            ASSERT(RingBufEmpty(&cmd_info.data_ringbuf_obj));
+
             /* Get starting x and y position */
-            x |= (((uint16_t)img.buffer[0]) << 8);
-            x |= (((uint16_t)img.buffer[1]) & 0xFF);
-            y |= (((uint16_t)img.buffer[2]) << 8);
-            y |= (((uint16_t)img.buffer[3]) & 0xFF);
+            x |= (((uint16_t)temp[0]) << 8);
+            x |= (((uint16_t)temp[1]) & 0xFF);
+            y |= (((uint16_t)temp[2]) << 8);
+            y |= (((uint16_t)temp[3]) & 0xFF);
 
             /* Get Height and Width */
-            height |= (((uint16_t)img.buffer[4]) << 8);
-            height |= (((uint16_t)img.buffer[5]) & 0xFF);
-            width |= (((uint16_t)img.buffer[6]) << 8);
+            height |= (((uint16_t)temp[4]) << 8);
+            height |= (((uint16_t)temp[5]) & 0xFF);
+            width |= (((uint16_t)temp[6]) << 8);
             width |= (((uint16_t)byte) & 0xFF);
 
             /* Change to Image Pixel State */
@@ -513,10 +484,6 @@ static void img_action(uint8_t byte)
             img.x = x;
             img.y = y;
 
-            /* Reset buffer to store pixel data */
-            img.buffer_idx = 0;
-            img.pix_idx = 0;
-
             /* Set the area to be filled */
             uint16_t x1 = img.x + img.width - 1;
             uint16_t y1 = img.y + img.height - 1;
@@ -526,10 +493,23 @@ static void img_action(uint8_t byte)
 
         }
     }
+
+    /* Check if it's last byte */
+    if (cmd_info.current_data == cmd_info.data_size)
+    {
+        img.state = STATE_IMG_PARAM;
+        tft_done_transfer();
+
+        last_data = true;
+    }
+
+    return last_data;
 }
 
-static void raw_action(uint8_t byte)
+static bool raw_action(uint8_t byte)
 {
+    bool last_data = false;
+
     /* RAW, data... */
     if (raw_state == STATE_SEND_CMD)
     {
@@ -545,9 +525,18 @@ static void raw_action(uint8_t byte)
         tft_send_data(byte);
     }
 
+    /* Check if it's last byte */
+    if (cmd_info.current_data == cmd_info.data_size)
+    {
+        last_data = true;
+        raw_state = STATE_SEND_CMD;
+    }
+
+    return last_data;
+
 }
 
-static void str_action(void)
+static bool str_action(uint8_t byte)
 {
     ASSERT(cmd_info.cmd.name == CMD_STR);
 
@@ -582,31 +571,22 @@ static void str_action(void)
     text[text_size] = 0;
 
     tft_draw_string_only(&text[0], x, y, font_size, color);
+
+    return true;
 }
 
-static void clr_action(void)
+static bool clr_action(uint8_t byte)
 {
     ASSERT(cmd_info.cmd.name == CMD_CLR);
+    ASSERT(byte == 0);
     
     tft_clear_screen();
+
+    return true;
 }
 
 static void cmd_parser_process(uint8_t byte)
 {
-#if 0
-    if (cmd_parser_parse(byte))
-    {
-        /* If full message packet found */
-
-        /* Get command from the packet */
-        uint8_t cmd_index = (uint8_t)cmd_parser_get_command();
-
-        /* Invoke Action based on command */ 
-        cmd_invoke[cmd_index]();
-
-        is_done = true;
-    }
-#endif
     uint8_t state = (uint8_t)get_state();
 
     /* Execute Command Parser */
@@ -622,7 +602,7 @@ static void pc_data_available_cb(void)
 {
     uint8_t read_byte;
     
-    uart_read(UART_CMD, &read_byte, 1);
+    uart_read(uart_type, &read_byte, 1);
 
     cmd_parser_process(read_byte);
 }
@@ -634,7 +614,7 @@ static void pc_data_available_cb(void)
 void cmd_parser_start(void)
 {
     /* Start UART Service */
-    uart_open(UART_CMD, pc_data_available_cb);
+    uart_open(uart_type, pc_data_available_cb);
 
     /* Register TFT callback */
     //tft_register_done_callback(tft_done_cb);
@@ -643,7 +623,7 @@ void cmd_parser_start(void)
 void cmd_parser_stop(void)
 {
     /* Close UART Service */
-    uart_close(UART_CMD);
+    uart_close(uart_type);
 }
 
 /*-----------------------------------------------------------------------------
@@ -657,6 +637,7 @@ void cmd_parser_init(void)
     /* Command Info Initialisation */
     cmd_info.state = STATE_EXPECT_STX;
     cmd_info.data_size = 0;
+    cmd_info.current_data = 0;
 
     cmd_info.cmd.name = MAX_CMD;
     cmd_info.cmd.size = 0;
@@ -664,12 +645,11 @@ void cmd_parser_init(void)
     img.height = 0;
     img.width = 0;
     img.state = STATE_IMG_PARAM;
-    img.buffer_idx = 0;
-    img.pix_idx = 0;
 
     raw_state = STATE_SEND_CMD;
 
     RingBufInit(&cmd_info.data_ringbuf_obj,
                 &cmd_info.buffer[0],
                 sizeof(cmd_info.buffer));
+
 }

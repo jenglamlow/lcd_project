@@ -1,9 +1,9 @@
 /*
  * =====================================================================================
  *
- *       Filename:  utils.c
+ *       Filename:  utilities.c
  *
- *    Description:  
+ *    Description:  Implementation file for Utility Function
  *
  *        Version:  1.0
  *        Created:  11/15/2014 01:51:03 PM

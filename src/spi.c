@@ -22,6 +22,7 @@
 /* Local Includes */
 #include "spi.h"
 #include "ringbuf.h"
+#include "setting.h"
 
 /* Third party libraries include */
 #include "driverlib/ssi.h"
@@ -31,9 +32,6 @@
 /*-----------------------------------------------------------------------------
  *  Configurations
  *-----------------------------------------------------------------------------*/
-
-#define RX_BUFFER_SIZE  16
-#define TX_BUFFER_SIZE  1024
 
 /*-----------------------------------------------------------------------------
  *  Private Types
@@ -55,18 +53,6 @@ typedef struct
 
     /* Store SSI Instance */
     spi_instance_t instance;
-
-#if USE_INTERRUPT
-    /* Ring Buffer for TX & RX */
-    tRingBufObject tx_ringbuf_obj;
-    tRingBufObject rx_ringbuf_obj;
-
-    /* Receive Buffer Array */
-    uint8_t rx_buffer[RX_BUFFER_SIZE];
-
-    /* Transmit Buffer Array */
-    uint8_t tx_buffer[TX_BUFFER_SIZE];
-#endif
 
     /* Client data available callback */
     spi_tx_cb_t tx_cb;
@@ -305,7 +291,7 @@ void spi_open(spi_instance_t spi_instance,
                            SysCtlClockGet(), 
                            SSI_FRF_MOTO_MODE_0,
                            SSI_MODE_MASTER, 
-                           25000000,
+                           SSI_SPEED,
                            8);
 
 #if USE_INTERRUPT
@@ -410,14 +396,5 @@ void spi_init(void)
     {
         spi_info[i].state = SPI_READY;
 
-#if USE_INTERRUPT
-        RingBufInit(&spi_info[i].tx_ringbuf_obj,
-                    &spi_info[i].tx_buffer[0],
-                    sizeof(spi_info[i].tx_buffer));
-
-        RingBufInit(&spi_info[i].rx_ringbuf_obj,
-                    &spi_info[i].rx_buffer[0],
-                    sizeof(spi_info[i].rx_buffer));
-#endif
     }
 }

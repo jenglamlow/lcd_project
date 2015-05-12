@@ -23,6 +23,7 @@
 /* Local includes */
 #include "uart.h"
 #include "ringbuf.h"
+#include "setting.h"
 
 /* Third Party Library */
 /* #include <stdarg.h> */
@@ -37,12 +38,6 @@
 
 /* Number of UART Driver */
 #define UART_COUNT          (3U)
-
-/* UART Transmit Buffer Size */
-#define RX_BUFFER_SIZE      (4096U)
-
-/* UART Receive Buffer Size */
-#define TX_BUFFER_SIZE      (512U)
 
 /*----------------------------------------------------------------------------*/
 /* Constants                                                                  */
@@ -70,6 +65,35 @@ static const uint32_t uart_peripheral[UART_COUNT] =
     SYSCTL_PERIPH_UART0, 
     SYSCTL_PERIPH_UART1,
     SYSCTL_PERIPH_UART2
+};
+
+/* UART Peripheral GPIO Map */
+static const uint32_t uart_peripheral_gpio[] =
+{
+    SYSCTL_PERIPH_GPIOA, SYSCTL_PERIPH_GPIOB, SYSCTL_PERIPH_GPIOB
+};
+
+
+/* UART GPIO Configuration Map */
+static const uint32_t uart_gpio_config[][2] =
+{
+    {GPIO_PA0_U0RX, GPIO_PA1_U0TX},
+    {GPIO_PB0_U1RX, GPIO_PB1_U1TX},
+    {GPIO_PD6_U2RX, GPIO_PD7_U2TX}
+};
+
+/* UART GPIO Port Map */
+static const uint32_t uart_gpio_port[] =
+{
+    GPIO_PORTA_BASE, GPIO_PORTB_BASE, GPIO_PORTD_BASE
+};
+
+/* UART GPIO Pin Map */
+static const uint32_t uart_gpio_pin[] =
+{
+    GPIO_PIN_0 | GPIO_PIN_1,
+    GPIO_PIN_0 | GPIO_PIN_1,
+    GPIO_PIN_6 | GPIO_PIN_7
 };
 
 /*----------------------------------------------------------------------------*/
@@ -102,10 +126,10 @@ typedef struct {
 static uart_info_t uart_info[UART_COUNT];
 
 /* UART1 Receive Buffer Array */
-uint8_t uart1_rx_buffer[RX_BUFFER_SIZE];
+uint8_t uart_rx_buffer[UART_RX_BUFFER_SIZE];
 
 /* UART1 Transmit Buffer Array */
-uint8_t uart1_tx_buffer[TX_BUFFER_SIZE];
+uint8_t uart_tx_buffer[UART_TX_BUFFER_SIZE];
 
 /*----------------------------------------------------------------------------*/
 /* Helper functions                                                           */
@@ -252,7 +276,7 @@ static void uart_irq(uart_instance_t uart_instance)
  */
 void UART1IntHandler(void)
 {
-    uart_irq(UART_CMD);
+    uart_irq(UART_1);
 }
 
 /*----------------------------------------------------------------------------*/
@@ -280,15 +304,15 @@ void uart_open(uart_instance_t          uart_instance,
     info->data_available_cb = uart_data_available_cb;
 
     /* IO initialisation */
-    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
-    ROM_GPIOPinConfigure(GPIO_PB0_U1RX);
-    ROM_GPIOPinConfigure(GPIO_PB1_U1TX);
-    ROM_GPIOPinTypeUART(GPIO_PORTB_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+    ROM_SysCtlPeripheralEnable(uart_peripheral_gpio[uart_instance]);
+    ROM_GPIOPinConfigure(uart_gpio_config[uart_instance][0]);
+    ROM_GPIOPinConfigure(uart_gpio_config[uart_instance][1]);
+    ROM_GPIOPinTypeUART(uart_gpio_port[uart_instance], uart_gpio_pin[uart_instance]);
 
     /* Enable UART Peripheral */
     ROM_SysCtlPeripheralEnable(uart_peripheral[uart_instance]);
 
-    ROM_UARTConfigSetExpClk(base, SysCtlClockGet(), 460800,
+    ROM_UARTConfigSetExpClk(base, SysCtlClockGet(), UART_BAUD_RATE,
                             (UART_CONFIG_PAR_NONE | UART_CONFIG_STOP_ONE |
                             UART_CONFIG_WLEN_8));
     
@@ -404,7 +428,7 @@ void uart_print(const char *fmt, ...)
     va_end(args);
     uint32_t size = strlen(buf);
 
-    uart_write(UART_CMD, buf, size);
+    uart_write(UART_1, buf, size);
 #endif
 }
 
@@ -445,11 +469,11 @@ void uart_init(void)
         uart_info[i].rx_flag = false;
     }
 
-    RingBufInit(&uart_info[UART_CMD].tx_ringbuf_obj,
-                &uart1_tx_buffer[0],
-                sizeof(uart1_tx_buffer));
+    RingBufInit(&uart_info[UART_1].tx_ringbuf_obj,
+                &uart_tx_buffer[0],
+                sizeof(uart_tx_buffer));
 
-    RingBufInit(&uart_info[UART_CMD].rx_ringbuf_obj,
-                &uart1_rx_buffer[0],
-                sizeof(uart1_rx_buffer));
+    RingBufInit(&uart_info[UART_1].rx_ringbuf_obj,
+                &uart_rx_buffer[0],
+                sizeof(uart_rx_buffer));
 }

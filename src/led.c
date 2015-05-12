@@ -73,9 +73,7 @@ static uint32_t start_time;
 
 void led_start(void)
 {
-    //
-    // Enable and configure the GPIO port for the LED operation.
-    //
+    /* Enable and configure the GPIO port for the LED operation. */
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
     GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, RED_LED|BLUE_LED|GREEN_LED);
 }
