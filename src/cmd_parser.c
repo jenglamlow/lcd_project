@@ -25,6 +25,7 @@
 #include "lib.h"
 #include "cmd_parser.h"
 #include "ringbuf.h"
+#include "setting.h"
 
 /*-----------------------------------------------------------------------------
  *  Configuration
@@ -123,26 +124,19 @@ typedef struct
 
 } cmd_info_t;
 
+/* Parse state */
 typedef enum
 {
-    STATE_IMG_PARAM,
-    STATE_IMG_PIXEL
-} img_state_t;
+    STATE_PARAM,
+    STATE_DATA
+} parse_state_t;
 
+/* Raw Action state */
 typedef enum
 {
     STATE_SEND_CMD,
     STATE_SEND_DATA
 } raw_state_t;
-
-typedef struct
-{
-    uint16_t    height;
-    uint16_t    width;
-    uint16_t    x;
-    uint16_t    y;
-    img_state_t state;
-} img_t;
 
 /* Function Pointer for Command Parser State Action */
 typedef void (*cmd_state_action_t)(uint8_t byte);
@@ -162,7 +156,6 @@ static void state_data(uint8_t byte);
 static void state_etx(uint8_t byte);
 
 /* Received Command Action */
-static bool nop_action(uint8_t byte);
 static bool blk_action(uint8_t byte);
 static bool img_action(uint8_t byte);
 static bool str_action(uint8_t byte);
@@ -203,15 +196,19 @@ static uint8_t data[MSG_SIZE];
 static char text[256] = "";
 
 /* Command State */
-static cmd_info_t  cmd_info;
-static img_t       img;
-static raw_state_t raw_state;
+static cmd_info_t       cmd_info;
+static parse_state_t    img_state;
+static raw_state_t      raw_state;
 
 #ifdef UART_CMD_0
 static uart_instance_t uart_type = UART_0;
-#elif UART_CMD_1
+#endif
+
+#ifdef UART_CMD_1
 static uart_instance_t uart_type = UART_1;
-#else
+#endif
+
+#ifdef UART_CMD_2
 static uart_instance_t uart_type = UART_2;
 #endif
 
@@ -376,24 +373,10 @@ static void state_data(uint8_t byte)
 
 static void state_etx(uint8_t byte)
 { 
-//    /* Full packet found */
-//    if (byte == CMD_ETX)
-//    {
-//        /* Execute action */
-//        cmd_invoke[(uint8_t)(cmd_info.cmd.name)]();
-//    }
-//
-
     /* Reset back to STATE_EXPECT_STX for new message packet */
     set_state(STATE_EXPECT_STX);
 }
 
-static bool nop_action(uint8_t byte)
-{
-    /* Do nothing */
-
-    return true;
-}
 
 static bool blk_action(uint8_t byte)
 {
@@ -401,32 +384,44 @@ static bool blk_action(uint8_t byte)
 
     /* x0(H) ,x0(L) ,y0(H), y0(L), x1(H), x1(L), y1(H), y1(L),
      * color(H), color(L) */
+    bool last_data = false;
     uint16_t x0;
     uint16_t y0;
     uint16_t x1;
     uint16_t y1;
     uint16_t color;
 
-    RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
+    /* Buffer the param byte */
+    RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
 
-    x0 = convert_to_word(data[BLK_X0_HIGH],
-                         data[BLK_X0_LOW]);
+    /* Check whether complete packet is received */
+    if (RingBufUsed(&cmd_info.data_ringbuf_obj) == cmd_info.data_size)
+    {
+        RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
+        ASSERT(RingBufEmpty(&cmd_info.data_ringbuf_obj));
 
-    y0 = convert_to_word(data[BLK_Y0_HIGH],
-                         data[BLK_Y0_LOW]);
+        x0 = convert_to_word(data[BLK_X0_HIGH],
+                             data[BLK_X0_LOW]);
 
-    x1 = convert_to_word(data[BLK_X1_HIGH],
-                         data[BLK_X1_LOW]);
+        y0 = convert_to_word(data[BLK_Y0_HIGH],
+                             data[BLK_Y0_LOW]);
+
+        x1 = convert_to_word(data[BLK_X1_HIGH],
+                             data[BLK_X1_LOW]);
+
+        y1 = convert_to_word(data[BLK_Y1_HIGH],
+                             data[BLK_Y1_LOW]);
+
+        color = convert_to_word(data[BLK_COLOR_HIGH],
+                                data[BLK_COLOR_LOW]);
     
-    y1 = convert_to_word(data[BLK_Y1_HIGH],
-                         data[BLK_Y1_LOW]);
+        tft_fill_area(x0, y0, x1, y1, color);
 
-    color = convert_to_word(data[BLK_COLOR_HIGH],
-                            data[BLK_COLOR_LOW]);
+        last_data = true;
 
-    tft_fill_area(x0, y0, x1, y1, color);
+    }
 
-    return true;
+    return last_data;
 }
 
 static bool img_action(uint8_t byte)
@@ -444,7 +439,7 @@ static bool img_action(uint8_t byte)
      * Sending Image Pixel
      * Place it as the first condition for better optimization
      */
-    if (img.state == STATE_IMG_PIXEL)
+    if (img_state == STATE_DATA)
     {
         /* Transfer pixel information */
         tft_send_data_only(byte);
@@ -476,20 +471,14 @@ static bool img_action(uint8_t byte)
             width |= (((uint16_t)byte) & 0xFF);
 
             /* Change to Image Pixel State */
-            img.state = STATE_IMG_PIXEL;
-
-            /* Store the param into img structure */
-            img.height = height;
-            img.width = width;
-            img.x = x;
-            img.y = y;
+            img_state = STATE_DATA;
 
             /* Set the area to be filled */
-            uint16_t x1 = img.x + img.width - 1;
-            uint16_t y1 = img.y + img.height - 1;
+            uint16_t x1 = x + width - 1;
+            uint16_t y1 = y + height - 1;
 
             /* Start image transaction by setting area boundary */
-            tft_start_image_transfer(img.x, img.y, x1, y1);
+            tft_start_image_transfer(x, y, x1, y1);
 
         }
     }
@@ -497,7 +486,7 @@ static bool img_action(uint8_t byte)
     /* Check if it's last byte */
     if (cmd_info.current_data == cmd_info.data_size)
     {
-        img.state = STATE_IMG_PARAM;
+        img_state = STATE_PARAM;
         tft_done_transfer();
 
         last_data = true;
@@ -540,39 +529,50 @@ static bool str_action(uint8_t byte)
 {
     ASSERT(cmd_info.cmd.name == CMD_STR);
 
-    /* x(H) ,x(L) ,y(H), y(L), font_size, color, text.... */
+    /* x(H) ,x(L) ,y(H), y(L), font_size, color(H), color(L), text.... */
 
+    bool last_data = false;
     uint16_t x;
     uint16_t y;
     uint16_t font_size;
     uint16_t color;
     uint8_t text_size = cmd_info.data_size - 7;
 
-    RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
+    /* Buffer the param byte */
+    RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
 
-    x = convert_to_word(data[STR_X_HIGH],
-                        data[STR_X_LOW]);
+    /* Check whether complete packet is received */
+    if (RingBufUsed(&cmd_info.data_ringbuf_obj) == cmd_info.data_size)
+    {
+        RingBufRead(&cmd_info.data_ringbuf_obj, &data[0], cmd_info.data_size);
+        ASSERT(RingBufEmpty(&cmd_info.data_ringbuf_obj));
 
-    y = convert_to_word(data[STR_Y_HIGH],
-                        data[STR_Y_LOW]);
+        x = convert_to_word(data[STR_X_HIGH],
+                            data[STR_X_LOW]);
 
-    font_size = (uint16_t)data[STR_FONT_SIZE];
+        y = convert_to_word(data[STR_Y_HIGH],
+                            data[STR_Y_LOW]);
 
-    color = convert_to_word(data[STR_COLOR_HIGH],
-                            data[STR_COLOR_LOW]);
+        font_size = (uint16_t)data[STR_FONT_SIZE];
 
-    /* 
-     * Size = total data byte size - 7 
-     * 6 = x(H) ,x(L) ,y(H), y(L), font_size, color(H), color(L)
-     */
-    memcpy(&text[0], &data[STR_TEXT], text_size);
+        color = convert_to_word(data[STR_COLOR_HIGH],
+                                data[STR_COLOR_LOW]);
 
-    /* Set Null termination at the last character */
-    text[text_size] = 0;
+        /*
+         * Size = total data byte size - 7
+         * 6 = x(H) ,x(L) ,y(H), y(L), font_size, color(H), color(L)
+         */
+        memcpy(&text[0], &data[STR_TEXT], text_size);
 
-    tft_draw_string_only(&text[0], x, y, font_size, color);
+        /* Set Null termination at the last character */
+        text[text_size] = 0;
 
-    return true;
+        tft_draw_string_only(&text[0], x, y, font_size, color);
+
+        last_data = true;
+    }
+
+    return last_data;
 }
 
 static bool clr_action(uint8_t byte)
@@ -642,10 +642,10 @@ void cmd_parser_init(void)
     cmd_info.cmd.name = MAX_CMD;
     cmd_info.cmd.size = 0;
 
-    img.height = 0;
-    img.width = 0;
-    img.state = STATE_IMG_PARAM;
+    /* Image state */
+    img_state = STATE_PARAM;
 
+    /* Raw state */
     raw_state = STATE_SEND_CMD;
 
     RingBufInit(&cmd_info.data_ringbuf_obj,

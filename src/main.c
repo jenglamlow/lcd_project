@@ -41,59 +41,9 @@
  *  Private Types
  *-----------------------------------------------------------------------------*/
 
-typedef enum
-{
-    STATE_IDLE = 0,
-    STATE_BUSY,
-    STATE_COUNT
-} state_t;
-
-typedef enum
-{
-    EVENT_RECEIVE_APP_DATA = 0,
-    EVENT_LCD_DONE,
-    EVENT_COUNT
-} event_t;
-
-typedef struct
-{
-    state_t state;
-    event_t event;
-    
-    char uart_rx_buffer[UART_BUFFER_SIZE];
-} main_info_t;
-
-typedef void (*action_t)(main_info_t *info);
-
-/* Structure for Transition Table */
-typedef struct
-{
-    state_t    next_state;
-    action_t   action;
-} state_transition_t;
-
 /*-----------------------------------------------------------------------------
  *  Private Data
  *-----------------------------------------------------------------------------*/
-static main_info_t main_info;
-
-static void send_tft(main_info_t *info);
-static void nop(main_info_t *info);
-
-static const state_transition_t 
-transition_table[STATE_COUNT][EVENT_COUNT] =
-{
-    /* STATE_IDLE */
-    {
-        /* EVENT_RECEIVE_APP_DATA, */  {STATE_BUSY,   send_tft},
-        /* EVENT_LCD_DONE, */          {STATE_IDLE,   nop},
-    },
-    /* STATE_BUSY */
-    {
-        /* EVENT_RECEIVE_APP_DATA, */  {STATE_BUSY,   nop},
-        /* EVENT_LCD_DONE, */          {STATE_IDLE,   nop},
-    }
-};
 
 /*-----------------------------------------------------------------------------
  *  Helper Functions
@@ -120,7 +70,7 @@ void __error__(char *pcFilename, unsigned long ulLine)
 static void peripheral_init(void)
 {
     /* Delay to allow voltage startup sequence */
-    delay_ms(2000);
+    delay_ms(1000);
     tft_start();
     cmd_parser_start();
 }
@@ -156,61 +106,6 @@ static void cpu_clock_init(void)
     ROM_IntPrioritySet(FAULT_SYSTICK, SYSTICK_INT_PRIORITY);
 }
 
-#if 0
-static void main_info_init(main_info_t *info)
-{
-    info->state = STATE_IDLE;
-    info->event = EVENT_RECEIVE_APP_DATA;
-
-    memset(&info->uart_rx_buffer[0], 0, UART_BUFFER_SIZE);
-}
-
-/* State Machine Helper Function */
-static void update_state(main_info_t    *info,
-                         state_t        state)
-{
-    ASSERT(info != NULL);
-    ASSERT(state < STATE_COUNT);
-
-    info->state = state;
-}
-
-static void update_event(main_info_t    *info,
-                         event_t        event)
-{
-    ASSERT(info != NULL);
-    ASSERT(event < EVENT_COUNT);
-
-    info->event = event;
-}
-
-static void inject_event(main_info_t   *info,
-                         event_t        event)
-{
-    state_t state = info->state;
-    state_t next_state;
-    
-    /* Update Event */
-    update_event(info, event);
-
-    /* Get Next State from Transition Table and Update State */
-    next_state = transition_table[state][event].next_state;
-    update_state(info, next_state);
-
-    transition_table[state][event].action(info);
-}
-
-
-static void nop(main_info_t *info)
-{
-    /* Do Nothing */
-}
-
-static void send_tft(main_info_t *info)
-{
-}
-#endif
-
 /*-----------------------------------------------------------------------------
  *  Event call-backs
  *-----------------------------------------------------------------------------*/
@@ -228,36 +123,16 @@ static void send_tft(main_info_t *info)
  *-----------------------------------------------------------------------------*/
 int main(void)
 {
-    uint8_t write_data[] = "123456789";
-    uint8_t write_data2[] = "sushi";
-
-    //main_info_init(&main_info);
     service_init();
     cpu_clock_init();
     peripheral_init();
 
-    //led.start();
     tft_clear_screen();
     tft_draw_string_only("AGITO", 30, 100, 6, GREEN);
     tft_draw_string_only("TECH", 50, 170, 6, GREEN);
-    //tft_test();
-
-    //spi.write_non_blocking(SPI_TFT, &write_data[0], sizeof(write_data));
-
-#if 0
-    tft.send_raw('A', &write_data[0s], 0);
-    tft.send_raw('B', &write_data[0], sizeof(write_data));
-    tft.send_raw('C', &write_data[0], 0);
-    tft.send_raw('D', &write_data2[0], sizeof(write_data2));
-#endif
 
     while(1)
     {
-        /* tft.running_animation(); */
-
-        /* delay_ms(1000); */
-        /* uart.write(UART_CMD, &write_data[0], sizeof(write_data)); */
-
         /* Round Robin Task Scheduler */
         uart_task();
         //led_task();

@@ -395,6 +395,5 @@ void spi_init(void)
     for (i = 0; i < SPI_COUNT; i++)
     {
         spi_info[i].state = SPI_READY;
-
     }
 }

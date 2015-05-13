@@ -42,7 +42,7 @@
 #define UART_BAUD_RATE           (460800U)
 
 /* UART Command Port */
-#define UART_CMD_0
+#define UART_CMD_1
 
 
 /* SSI Speed Definition */
