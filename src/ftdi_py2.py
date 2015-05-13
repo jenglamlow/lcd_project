@@ -294,10 +294,12 @@ class Ftdi(object):
     def print_info(self, command):
         print ""
         print "Sending Command :", command._command.info
+        print "Packet (hex) :"
         if (len(command._command.packet) < 50):
-            print "Packet :", command._command.packet
+            print ", ".join("{:02x}".format(c)for c in command._command.packet)
         else:
-            print "Packet :", command._command.packet[:50], ",",
+            print ", ".join("{:02x}".format(c)
+                            for c in command._command.packet[:50]),
             print "data...", ',',
             print command._command.packet[-1]
 

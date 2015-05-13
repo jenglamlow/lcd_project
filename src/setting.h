@@ -41,7 +41,7 @@
 /* UART Baudrate */
 #define UART_BAUD_RATE           (460800U)
 
-/* UART Command Port */
+/* UART Command Port - Change to UART_CMD_0 if using UART0 */
 #define UART_CMD_1
 
 

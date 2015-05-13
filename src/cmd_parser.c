@@ -88,6 +88,7 @@ typedef enum
     CMD_STR,
     CMD_CLR,
     CMD_RAW,
+    CMD_SQB,
     MAX_CMD
 } cmd_t;
 
@@ -166,7 +167,7 @@ static bool raw_action(uint8_t byte);
 static const cmd_definition_t cmd_table[MAX_CMD] = 
 {
     {CMD_BLK, 10},
-    {CMD_IMG, 4},
+    {CMD_IMG, 8},
     {CMD_STR, 8},
     {CMD_CLR, 0},
     {CMD_RAW, 0}
