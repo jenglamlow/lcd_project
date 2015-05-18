@@ -121,7 +121,7 @@ typedef struct
     uint32_t data_size;
 
     /* Command current data size */
-    uint32_t current_data
+    uint32_t current_data;
 
 } cmd_info_t;
 
@@ -219,8 +219,7 @@ static uart_instance_t uart_type = UART_2;
  *-----------------------------------------------------------------------------*/
 /**
  * @brief   Get the current command parser state 
- *
- * @return: Current Command Parser State 
+ * @return  Current Command Parser State
  */
 static state_t get_state(void)
 {
@@ -228,9 +227,8 @@ static state_t get_state(void)
 }
 
 /**
- * @brief  Set command parser state to current state
- *
- * @param state:  Desired command parser state
+ * @brief   Set command parser state to current state
+ * @param   state   Desired command parser state
  */
 static void set_state(state_t state)
 {
@@ -238,11 +236,9 @@ static void set_state(state_t state)
 }
 
 /**
- * @brief  Check whether the byte is a valid command byte
- *
- * @param byte:     Input byte
- *
- * @return:         True if it is a valid command byte, Otherwise, False
+ * @brief   Check whether the byte is a valid command byte
+ * @param   byte     Input byte
+ * @return  True if it is a valid command byte, Otherwise, False
  */
 static bool is_cmd_byte(uint8_t byte)
 {
@@ -270,6 +266,10 @@ static bool is_cmd_byte(uint8_t byte)
     return is_valid_cmd;
 }
 
+/**
+ * @brief   State Expect STX byte
+ * @param   byte    received byte
+ */
 static void state_stx(uint8_t byte)
 {
     ASSERT(get_state() == STATE_EXPECT_STX);
@@ -281,6 +281,10 @@ static void state_stx(uint8_t byte)
     }
 }
 
+/**
+ * @brief   State Expect Command byte
+ * @param   byte    received byte
+ */
 static void state_cmd(uint8_t byte)
 {
     ASSERT(get_state() == STATE_EXPECT_CMD);
@@ -305,6 +309,10 @@ static void state_cmd(uint8_t byte)
     }
 }
 
+/**
+ * @brief   State Expect STX byte
+ * @param   byte    received byte
+ */
 static void state_size(uint8_t byte)
 {
     ASSERT(get_state() == STATE_EXPECT_SIZE);
@@ -358,6 +366,10 @@ static void state_size(uint8_t byte)
     }
 }
 
+/**
+ * @brief   State Expect Data byte
+ * @param   byte    received byte
+ */
 static void state_data(uint8_t byte)
 {
     ASSERT(get_state() == STATE_EXPECT_DATA);
@@ -371,14 +383,21 @@ static void state_data(uint8_t byte)
     }
 }
 
-
+/**
+ * @brief   State Expect ETX byte
+ * @param   byte    received byte
+ */
 static void state_etx(uint8_t byte)
 { 
     /* Reset back to STATE_EXPECT_STX for new message packet */
     set_state(STATE_EXPECT_STX);
 }
 
-
+/**
+ * @brief   Block Action (Fill Rectangle Command)
+ * @param   byte    received byte
+ * @return  True if the received byte is the last data byte
+ */
 static bool blk_action(uint8_t byte)
 {
     ASSERT(cmd_info.cmd.name == CMD_BLK);
@@ -425,6 +444,11 @@ static bool blk_action(uint8_t byte)
     return last_data;
 }
 
+/**
+ * @brief   Image Action (Draw Image Command)
+ * @param   byte    received byte
+ * @return  True if the received byte is the last data byte
+ */
 static bool img_action(uint8_t byte)
 {
     /* x(H), x(L), y(H), y(L), h(H), h(L), w(H), w(L), 16bit-pixel */
@@ -496,6 +520,11 @@ static bool img_action(uint8_t byte)
     return last_data;
 }
 
+/**
+ * @brief   Raw Action (Send Raw TFT Command)
+ * @param   byte    received byte
+ * @return  True if the received byte is the last data byte
+ */
 static bool raw_action(uint8_t byte)
 {
     bool last_data = false;
@@ -526,6 +555,11 @@ static bool raw_action(uint8_t byte)
 
 }
 
+/**
+ * @brief   String Action (Draw string Command)
+ * @param   byte    received byte
+ * @return  True if the received byte is the last data byte
+ */
 static bool str_action(uint8_t byte)
 {
     ASSERT(cmd_info.cmd.name == CMD_STR);
@@ -576,6 +610,11 @@ static bool str_action(uint8_t byte)
     return last_data;
 }
 
+/**
+ * @brief   Clear Action (Clear screen Command)
+ * @param   byte    received byte
+ * @return  True if the received byte is the last data byte
+ */
 static bool clr_action(uint8_t byte)
 {
     ASSERT(cmd_info.cmd.name == CMD_CLR);
@@ -586,19 +625,26 @@ static bool clr_action(uint8_t byte)
     return true;
 }
 
+/**
+ * @brief   Process Command Parser by invoking state table based on current
+ *          parser state
+ * @param   byte    received byte
+ */
 static void cmd_parser_process(uint8_t byte)
 {
     uint8_t state = (uint8_t)get_state();
 
     /* Execute Command Parser */
     cmd_state_table[state](byte);
-
 }
 
 /*-----------------------------------------------------------------------------
  *  Event Callback Functons
  *-----------------------------------------------------------------------------*/
 
+/**
+ * @brief   Callback action when it received client data (PC)
+ */
 static void pc_data_available_cb(void)
 {
     uint8_t read_byte;
@@ -612,6 +658,9 @@ static void pc_data_available_cb(void)
  *  Services
  *-----------------------------------------------------------------------------*/
 
+/**
+ * @brief   Start command parser service by opening UART port
+ */
 void cmd_parser_start(void)
 {
     /* Start UART Service */
@@ -621,6 +670,9 @@ void cmd_parser_start(void)
     //tft_register_done_callback(tft_done_cb);
 }
 
+/**
+ * @brief   Stop command parser service by closing UART port
+ */
 void cmd_parser_stop(void)
 {
     /* Close UART Service */
@@ -631,7 +683,7 @@ void cmd_parser_stop(void)
  *  Initialisation
  *-----------------------------------------------------------------------------*/
 /**
- * Command parser service initialisation
+ * @brief   Command Parser Initialization
  */
 void cmd_parser_init(void)
 {

@@ -1092,7 +1092,6 @@ void tft_draw_char(uint8_t ascii, uint16_t x, uint16_t y,
 
 /**
 * @brief    Draw string at (x,y) with fill foreground and background color
-*
 * @param    string    String input. Eg: "abc"
 * @param    x         x coordinate
 * @param    y         y coordinate
@@ -1118,15 +1117,13 @@ void tft_draw_string(char *string, uint16_t x, uint16_t y,
 
 /**
  * @brief   Print number character at (x,y) with foreground & background color
- *
  * @param   long_num    Number to be printed
  * @param   x           x-coordinate
  * @param   y           y-coordinate
  * @param   size:       Size of the number text
  * @param   fgcolor     Foreground color
  * @param   bgcolor     Background color
- *
- * @return:         The number of character printed for the number input
+ * @return  The number of character printed for the number input
  */
 uint8_t tft_draw_number(int long_num, uint16_t x, uint16_t y,
                         uint16_t size, uint16_t fgcolor, uint16_t bgcolor)
