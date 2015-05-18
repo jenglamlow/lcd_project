@@ -170,7 +170,8 @@ static const cmd_definition_t cmd_table[MAX_CMD] =
     {CMD_IMG, 8},
     {CMD_STR, 8},
     {CMD_CLR, 0},
-    {CMD_RAW, 0}
+    {CMD_RAW, 0},
+    {CMD_SQB, 0}
 };
 
 static const cmd_invoke_action_t cmd_invoke[] =
