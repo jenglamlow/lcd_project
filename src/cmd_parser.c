@@ -162,6 +162,7 @@ static bool img_action(uint8_t byte);
 static bool str_action(uint8_t byte);
 static bool clr_action(uint8_t byte);
 static bool raw_action(uint8_t byte);
+static bool sqb_action(uint8_t byte);
 
 /* Command Table to store command list with expected minimum data size */
 static const cmd_definition_t cmd_table[MAX_CMD] = 
@@ -180,7 +181,8 @@ static const cmd_invoke_action_t cmd_invoke[] =
     /* CMD_IMG */   img_action,
     /* CMD_STR */   str_action,
     /* CMD_CLR */   clr_action,
-    /* CMD_RAW */   raw_action
+    /* CMD_RAW */   raw_action,
+    /* CMD_SQB */   sqb_action
 };
 
 /* Table storing command state function */
@@ -623,6 +625,16 @@ static bool clr_action(uint8_t byte)
     
     tft_clear_screen();
 
+    return true;
+}
+
+/**
+ *
+ * @param byte
+ * @return
+ */
+static bool sqb_action(uint8_t byte)
+{
     return true;
 }
 
