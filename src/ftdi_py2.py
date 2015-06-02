@@ -23,6 +23,7 @@ CMD_IMG = 1
 CMD_STR = 2
 CMD_CLR = 3
 CMD_RAW = 4
+CMD_SQB = 5
 
 
 # Color Definition
@@ -277,6 +278,51 @@ class RawCommand(object):
         RawCommand.set_param(self, cmd, data)
 
 
+class SqbCommand(object):
+
+    def set_param(self, ref, size, color, pos_list):
+        self._ref = ref
+        self._size = size
+        self._color = color
+        self._pos_list = pos_list
+
+        param = [CMD_SQB]
+
+        # Reference Position
+        param.append(high_byte(ref[0]))
+        param.append(low_byte(ref[0]))
+        param.append(high_byte(ref[1]))
+        param.append(low_byte(ref[1]))
+
+        # Count
+        param.append(high_byte(len(pos_list)))
+        param.append(low_byte(len(pos_list)))
+
+        # Size
+        param.append(high_byte(size[0]))
+        param.append(low_byte(size[0]))
+        param.append(high_byte(size[1]))
+        param.append(low_byte(size[1]))
+
+        # Color
+        param.append(high_byte(color))
+        param.append(low_byte(color))
+
+        # Position list
+        for i in range(len(pos_list)):
+            param.append(high_byte(pos_list[i][0]))
+            param.append(low_byte(pos_list[i][0]))
+            param.append(high_byte(pos_list[i][1]))
+            param.append(low_byte(pos_list[i][1]))
+
+        self._command.param = param
+
+    def __init__(self, ref, size, color, pos_list):
+        self._command = Command()
+
+        SqbCommand.set_param(self, ref, size, color, pos_list)
+
+
 # =============================================================================
 #    Ftdi Class Definition
 # =============================================================================
@@ -341,6 +387,9 @@ image_command = ImageCommand([0, 0], "test.bmp")
 data_list = []
 raw_command = RawCommand(0x01, data_list)
 
+pos_list = [[0, 0], [100, 100], [190, 270]]
+sqb_command = SqbCommand([0, 0], [50, 50], WHITE, pos_list)
+
 # =============================================================================
 #    Action Function
 # =============================================================================
@@ -379,6 +428,10 @@ def raw_action():
     dev.send(raw_command)
 
 
+def sqb_action():
+    dev.send(sqb_command)
+
+
 def test_action():
     clear_action()
     time.sleep(0.5)
@@ -405,6 +458,7 @@ action_map = {
     't': string_action,
     'i': image_action,
     'r': raw_action,
+    's': sqb_action,
     '`': test_action,
 }
 
@@ -423,6 +477,7 @@ while (True):
     print "t - Send Text"
     print "i - Send Image"
     print "r - Send Raw"
+    print "s - Send Repeated Block"
     print "` - Test Program"
     print "x - Exit"
     print "-->",

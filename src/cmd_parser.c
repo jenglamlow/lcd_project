@@ -139,6 +139,16 @@ typedef enum
     STATE_SEND_DATA
 } raw_state_t;
 
+typedef struct
+{
+    uint16_t x_ref;
+    uint16_t y_ref;
+    uint16_t x_size;
+    uint16_t y_size;
+    uint16_t color;
+    uint16_t n_count;
+} sqb_info_t;
+
 /* Function Pointer for Command Parser State Action */
 typedef void (*cmd_state_action_t)(uint8_t byte);
 
@@ -199,9 +209,12 @@ static const cmd_state_action_t cmd_state_table[] =
 static uint8_t data[MSG_SIZE];
 static char text[256] = "";
 
-/* Command State */
+/* Structure Info */
 static cmd_info_t       cmd_info;
-static parse_state_t    img_state;
+static sqb_info_t       sqb_info;
+
+/* Command State */
+static parse_state_t    parse_state;
 static raw_state_t      raw_state;
 
 #ifdef UART_CMD_0
@@ -467,7 +480,7 @@ static bool img_action(uint8_t byte)
      * Sending Image Pixel
      * Place it as the first condition for better optimization
      */
-    if (img_state == STATE_DATA)
+    if (parse_state == STATE_DATA)
     {
         /* Transfer pixel information */
         tft_send_data_only(byte);
@@ -499,7 +512,7 @@ static bool img_action(uint8_t byte)
             width |= (((uint16_t)byte) & 0xFF);
 
             /* Change to Image Pixel State */
-            img_state = STATE_DATA;
+            parse_state = STATE_DATA;
 
             /* Set the area to be filled */
             uint16_t x1 = x + width - 1;
@@ -514,7 +527,7 @@ static bool img_action(uint8_t byte)
     /* Check if it's last byte */
     if (cmd_info.current_data == cmd_info.data_size)
     {
-        img_state = STATE_PARAM;
+        parse_state = STATE_PARAM;
         tft_done_transfer();
 
         last_data = true;
@@ -635,7 +648,75 @@ static bool clr_action(uint8_t byte)
  */
 static bool sqb_action(uint8_t byte)
 {
-    return true;
+    ASSERT(cmd_info.cmd.name == CMD_SQB);
+
+    /* xRef(H) ,xRef(L) ,yRef(H), yRef(L),
+     * nCount(H), nCount(L),
+     * xSize(H) ,xSize(L) ,ySize(H), ySize(L),
+     * color(H), color(L),
+     * xPos(H)[0], xPos(L)[0], yPos(H)[0], yPos(L)[0] */
+
+    bool     last_data = false;
+    uint8_t  temp[12];
+
+    if (parse_state == STATE_DATA)
+    {
+        /* Buffer the data byte (position byte) - 4 bytes */
+        RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
+
+        /* Check whether full param infomation is received (12 bytes) */
+        if (RingBufUsed(&cmd_info.data_ringbuf_obj) == 4)
+        {
+            RingBufRead(&cmd_info.data_ringbuf_obj, &temp[0], 4);
+            ASSERT(RingBufEmpty(&cmd_info.data_ringbuf_obj));
+
+            /* Position Calculation */
+            uint16_t xpos   = ((((uint16_t)temp[0]) << 8) | (temp[1] & 0xFF));
+            uint16_t ypos   = ((((uint16_t)temp[2]) << 8) | (temp[3] & 0xFF));
+
+            uint16_t x0 = sqb_info.x_ref + xpos;
+            uint16_t y0 = sqb_info.y_ref + ypos;
+            uint16_t x1 = x0 + sqb_info.x_size;
+            uint16_t y1 = y0 + sqb_info.y_size;
+
+            /* Draw Block */
+            tft_fill_area(x0, y0, x1, y1, sqb_info.color);
+        }
+    }
+    /* Getting Repeated Block Parameter - STATE_PARAM */
+    else
+    {
+       /* Buffer the param byte */
+       RingBufWrite(&cmd_info.data_ringbuf_obj, &byte, 1);
+
+       /* Check whether full param infomation is received (12 bytes) */
+       if (RingBufUsed(&cmd_info.data_ringbuf_obj) == 12)
+       {
+           RingBufRead(&cmd_info.data_ringbuf_obj, &temp[0], 12);
+           ASSERT(RingBufEmpty(&cmd_info.data_ringbuf_obj));
+
+           /* Change to Data State */
+           parse_state = STATE_DATA;
+
+           /* Store param infomation */
+           sqb_info.x_ref   = ((((uint16_t)temp[0]) << 8) | (temp[1] & 0xFF));
+           sqb_info.y_ref   = ((((uint16_t)temp[2]) << 8) | (temp[3] & 0xFF));
+           sqb_info.n_count = ((((uint16_t)temp[4]) << 8) | (temp[5] & 0xFF));
+           sqb_info.x_size  = ((((uint16_t)temp[6]) << 8) | (temp[7] & 0xFF));
+           sqb_info.y_size  = ((((uint16_t)temp[8]) << 8) | (temp[9] & 0xFF));
+           sqb_info.color   = ((((uint16_t)temp[10]) << 8) | (temp[11] & 0xFF));
+       }
+    }
+
+   /* Check if it's last byte */
+   if (cmd_info.current_data == cmd_info.data_size)
+   {
+       parse_state = STATE_PARAM;
+
+       last_data = true;
+   }
+
+    return last_data;
 }
 
 /**
@@ -709,7 +790,7 @@ void cmd_parser_init(void)
     cmd_info.cmd.size = 0;
 
     /* Image state */
-    img_state = STATE_PARAM;
+    parse_state = STATE_PARAM;
 
     /* Raw state */
     raw_state = STATE_SEND_CMD;
